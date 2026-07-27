@@ -1,0 +1,7 @@
+# CI-generated fixtures produced by corpus/generators/*.sh; never commit.
+S3.pdf
+S8.pdf
+S9-rc4-empty-user.pdf
+S10-aes256-empty-user.pdf
+S11-password-required.pdf
+S12-annotations-restricted.pdf
