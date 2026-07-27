@@ -328,9 +328,42 @@ pub fn evaluate_c11a(
     }
 }
 
+/// C11a judgment over already-collected page words. Evaluation order
+/// matters: an unmatched needle is a skip (pass) regardless of the qpdf
+/// pass's outcome — the qpdf error check applies only once there is a
+/// candidate to compare against.
+pub fn check_c11a_with_words(
+    anchor: &TextAnchor,
+    pos_checks: &[PosCheck],
+    words: &[BboxWord],
+    nm: Result<&BTreeMap<String, NmInfo>, &str>,
+) -> C11aOutcome {
+    if !words.iter().any(|w| w.text.trim() == anchor.needle) {
+        return C11aOutcome {
+            pass: true,
+            detail: format!(
+                "skip: needle {:?} not found verbatim in pdftotext -bbox-layout output for this page",
+                anchor.needle
+            ),
+            selection: None,
+        };
+    }
+    let nm = match nm {
+        Ok(map) => map,
+        Err(qerr) => {
+            return C11aOutcome {
+                pass: false,
+                detail: format!("qpdf error: {qerr}"),
+                selection: None,
+            };
+        }
+    };
+    evaluate_c11a(anchor, pos_checks, words, nm)
+}
+
 /// IO wrapper for C11a: skips when there is nothing to check, collects the
-/// page's words, and delegates to `evaluate_c11a`. `nm` is the shared qpdf
-/// result for this scenario (`Err` when the qpdf pass failed).
+/// page's words, and delegates to `check_c11a_with_words`. `nm` is the
+/// shared qpdf result for this scenario (`Err` when the qpdf pass failed).
 pub fn check_c11a(
     cur_path: &str,
     anchor: &TextAnchor,
@@ -354,17 +387,7 @@ pub fn check_c11a(
             };
         }
     };
-    let nm = match nm {
-        Ok(map) => map,
-        Err(qerr) => {
-            return C11aOutcome {
-                pass: false,
-                detail: format!("qpdf error: {qerr}"),
-                selection: None,
-            };
-        }
-    };
-    evaluate_c11a(anchor, pos_checks, &words, nm)
+    check_c11a_with_words(anchor, pos_checks, &words, nm)
 }
 
 #[cfg(test)]
@@ -583,6 +606,45 @@ mod tests {
             out.detail,
             "hl: got (100.00,100.00)-(300.00,120.00) want(pdftotext-derived) (10.00,700.00)-(60.00,712.00) match=false"
         );
+    }
+
+    #[test]
+    fn c11a_needle_absence_skips_before_qpdf_error() {
+        // Evaluation order: an unmatched needle is a skip (pass) even when
+        // the qpdf pass failed.
+        let anchor = anchor_at(Rect::new(10.0, 700.0, 60.0, 712.0));
+        let words = vec![word("other", 0.0, 0.0, 1.0, 1.0)];
+        let out = check_c11a_with_words(
+            &anchor,
+            &[PosCheck {
+                id: "hl".into(),
+                derive: PosDerive::Highlight,
+            }],
+            &words,
+            Err("exit status 2 (boom)"),
+        );
+        assert!(out.pass);
+        assert_eq!(
+            out.detail,
+            "skip: needle \"needle\" not found verbatim in pdftotext -bbox-layout output for this page"
+        );
+    }
+
+    #[test]
+    fn c11a_qpdf_error_fails_when_needle_is_present() {
+        let anchor = anchor_at(Rect::new(10.0, 700.0, 60.0, 712.0));
+        let words = vec![word("needle", 10.0, 88.0, 60.0, 100.0)];
+        let out = check_c11a_with_words(
+            &anchor,
+            &[PosCheck {
+                id: "hl".into(),
+                derive: PosDerive::Highlight,
+            }],
+            &words,
+            Err("exit status 2 (boom)"),
+        );
+        assert!(!out.pass);
+        assert_eq!(out.detail, "qpdf error: exit status 2 (boom)");
     }
 
     #[test]

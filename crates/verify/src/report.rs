@@ -35,25 +35,24 @@ pub fn encrypted_column(r: &SampleResult) -> String {
             }
         }
         EncMode::RoundtripPass => {
-            let slots: [(&Scenario, bool); 4] = [
+            if r.loop_scenarios.len() < 10 {
+                return "**FAIL**".to_string();
+            }
+            let mut slots: Vec<(&Scenario, bool)> = vec![
                 (&r.add, false),
                 (&r.modified, r.modified_skipped),
                 (&r.add_multiline, r.add_multiline_skipped),
                 (&r.removed, false),
             ];
+            slots.extend(r.loop_scenarios.iter().map(|sc| (sc, false)));
             for (sc, skipped) in slots {
-                if !skipped && !sc.fatal.is_empty() {
-                    return "**FAIL**".to_string();
+                if skipped {
+                    continue;
                 }
-            }
-            if r.loop_scenarios.len() < 10 {
-                return "**FAIL**".to_string();
-            }
-            let mut scan: Vec<&Scenario> = vec![&r.add, &r.modified, &r.add_multiline, &r.removed];
-            scan.extend(r.loop_scenarios.iter());
-            for sc in scan {
+                // Any non-skipped fatal — including a loop iteration —
+                // means the encrypted save path is broken.
                 if !sc.fatal.is_empty() {
-                    continue; // skipped slots handled above
+                    return "**FAIL**".to_string();
                 }
                 for c in &sc.checks {
                     if c.id == "C-enc-qpdf" && !c.pass {
@@ -614,6 +613,13 @@ mod tests {
         let mut r2 = roundtrip_sample();
         r2.loop_scenarios.truncate(5);
         assert_eq!(encrypted_column(&r2), "**FAIL**");
+    }
+
+    #[test]
+    fn encrypted_column_fails_on_loop_iteration_fatal() {
+        let mut r = roundtrip_sample();
+        r.loop_scenarios[9] = Scenario::fatal("loop-10", "load state: boom");
+        assert_eq!(encrypted_column(&r), "**FAIL**");
     }
 
     #[test]
