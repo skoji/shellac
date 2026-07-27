@@ -1,0 +1,580 @@
+{
+  "version": 2,
+  "parameters": {
+    "decodelevel": "generalized"
+  },
+  "pages": [
+    {
+      "contents": [
+        "11 0 R"
+      ],
+      "images": [
+        {
+          "bitspercomponent": 8,
+          "colorspace": "/DeviceRGB",
+          "decodeparms": [
+            null
+          ],
+          "filter": [
+            "/DCTDecode"
+          ],
+          "filterable": false,
+          "height": 2550,
+          "name": "/Im0",
+          "object": "16 0 R",
+          "width": 1803
+        }
+      ],
+      "label": null,
+      "object": "9 0 R",
+      "outlines": [],
+      "pageposfrom1": 1
+    }
+  ],
+  "pagelabels": [],
+  "acroform": {
+    "fields": [],
+    "hasacroform": false,
+    "needappearances": false
+  },
+  "attachments": {},
+  "encrypt": {
+    "capabilities": {
+      "accessibility": true,
+      "extract": true,
+      "modify": true,
+      "modifyannotations": true,
+      "modifyassembly": true,
+      "modifyforms": true,
+      "modifyother": true,
+      "printhigh": true,
+      "printlow": true
+    },
+    "encrypted": false,
+    "ownerpasswordmatched": false,
+    "parameters": {
+      "P": 0,
+      "R": 0,
+      "V": 0,
+      "bits": 0,
+      "filemethod": "none",
+      "key": null,
+      "method": "none",
+      "streammethod": "none",
+      "stringmethod": "none"
+    },
+    "recovereduserpassword": null,
+    "userpasswordmatched": false
+  },
+  "outlines": [],
+  "qpdf": [
+    {
+      "jsonversion": 2,
+      "pdfversion": "1.6",
+      "pushedinheritedpageresources": false,
+      "calledgetallpages": true,
+      "maxobjectid": 30
+    },
+    {
+      "obj:1 0 R": {
+        "stream": {
+          "dict": {
+            "/Length": 3119,
+            "/Subtype": "/XML",
+            "/Type": "/Metadata"
+          }
+        }
+      },
+      "obj:2 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/First": 4,
+            "/Length": 48,
+            "/N": 1,
+            "/Type": "/ObjStm"
+          }
+        }
+      },
+      "obj:3 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/First": 4,
+            "/Length": 106,
+            "/N": 1,
+            "/Type": "/ObjStm"
+          }
+        }
+      },
+      "obj:4 0 R": {
+        "stream": {
+          "dict": {
+            "/DecodeParms": {
+              "/Columns": 4,
+              "/Predictor": 12
+            },
+            "/Filter": "/FlateDecode",
+            "/ID": [
+              "b:3c21700b366c3cf85666613cc41b80ad",
+              "b:ecfc534176a145e8aec04061783d0e5e"
+            ],
+            "/Info": "6 0 R",
+            "/Length": 39,
+            "/Root": "8 0 R",
+            "/Size": 7,
+            "/Type": "/XRef",
+            "/W": [
+              1,
+              3,
+              0
+            ]
+          }
+        }
+      },
+      "obj:5 0 R": {
+        "value": {
+          "/Count": 1,
+          "/Kids": [
+            "9 0 R"
+          ],
+          "/Type": "/Pages"
+        }
+      },
+      "obj:6 0 R": {
+        "value": {
+          "/CreationDate": "u:D:20260727072400+09'00'",
+          "/ModDate": "u:D:20260727072400+09'00'",
+          "/Producer": "u:Adobe Acrobat 26 Paper Capture Plug-in"
+        }
+      },
+      "obj:7 0 R": {
+        "value": {
+          "/E": 207630,
+          "/H": [
+            457,
+            148
+          ],
+          "/L": 211448,
+          "/Linearized": 1,
+          "/N": 1,
+          "/O": 9,
+          "/T": 211161
+        }
+      },
+      "obj:8 0 R": {
+        "value": {
+          "/Metadata": "1 0 R",
+          "/Pages": "5 0 R",
+          "/Type": "/Catalog"
+        }
+      },
+      "obj:9 0 R": {
+        "value": {
+          "/Annots": [
+            "28 0 R",
+            "29 0 R"
+          ],
+          "/Contents": "11 0 R",
+          "/CropBox": [
+            0,
+            0,
+            595.486,
+            842.202
+          ],
+          "/MediaBox": [
+            0,
+            0,
+            595.486,
+            842.202
+          ],
+          "/Parent": "5 0 R",
+          "/Resources": "18 0 R",
+          "/Rotate": 0,
+          "/Type": "/Page"
+        }
+      },
+      "obj:10 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/First": 55,
+            "/Length": 451,
+            "/N": 8,
+            "/Type": "/ObjStm"
+          }
+        }
+      },
+      "obj:11 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/Length": 1381
+          }
+        }
+      },
+      "obj:12 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/ASCIIHexDecode",
+            "/Length": 565,
+            "/Subtype": "/CIDFontType0C"
+          }
+        }
+      },
+      "obj:13 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/Length": 1789
+          }
+        }
+      },
+      "obj:14 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/ASCIIHexDecode",
+            "/Length": 565,
+            "/Subtype": "/CIDFontType0C"
+          }
+        }
+      },
+      "obj:15 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/Length": 1789
+          }
+        }
+      },
+      "obj:16 0 R": {
+        "stream": {
+          "dict": {
+            "/BitsPerComponent": 8,
+            "/ColorSpace": "/DeviceRGB",
+            "/Filter": "/DCTDecode",
+            "/Height": 2550,
+            "/Length": 199621,
+            "/Subtype": "/Image",
+            "/Type": "/XObject",
+            "/Width": 1803
+          }
+        }
+      },
+      "obj:17 0 R": {
+        "stream": {
+          "dict": {
+            "/DecodeParms": {
+              "/Columns": 4,
+              "/Predictor": 12
+            },
+            "/Filter": "/FlateDecode",
+            "/ID": [
+              "b:3c21700b366c3cf85666613cc41b80ad",
+              "b:ecfc534176a145e8aec04061783d0e5e"
+            ],
+            "/Index": [
+              7,
+              20
+            ],
+            "/Info": "6 0 R",
+            "/Length": 60,
+            "/Prev": 211162,
+            "/Root": "8 0 R",
+            "/Size": 27,
+            "/Type": "/XRef",
+            "/W": [
+              1,
+              2,
+              1
+            ]
+          }
+        }
+      },
+      "obj:18 0 R": {
+        "value": {
+          "/Font": {
+            "/Fh0": "19 0 R",
+            "/Fx0": "22 0 R",
+            "/Fy0": "25 0 R"
+          },
+          "/ProcSet": [
+            "/PDF",
+            "/Text",
+            "/ImageB",
+            "/ImageC"
+          ],
+          "/XObject": {
+            "/Im0": "16 0 R"
+          }
+        }
+      },
+      "obj:19 0 R": {
+        "value": {
+          "/BaseFont": "/Helvetica",
+          "/Encoding": "/WinAnsiEncoding",
+          "/Subtype": "/Type1",
+          "/Type": "/Font"
+        }
+      },
+      "obj:20 0 R": {
+        "value": {
+          "/Ascent": 1000,
+          "/CapHeight": 1000,
+          "/Descent": -250,
+          "/Flags": 4,
+          "/FontBBox": [
+            0,
+            -250,
+            1000,
+            1000
+          ],
+          "/FontFile3": "12 0 R",
+          "/FontName": "/HiddenHorzOCR",
+          "/ItalicAngle": 0,
+          "/MissingWidth": 1000,
+          "/StemH": 100,
+          "/StemV": 100,
+          "/Type": "/FontDescriptor",
+          "/XHeight": 1000
+        }
+      },
+      "obj:21 0 R": {
+        "value": {
+          "/BaseFont": "/HiddenHorzOCR",
+          "/CIDSystemInfo": {
+            "/Ordering": "u:Identity",
+            "/Registry": "u:Adobe",
+            "/Supplement": 0
+          },
+          "/DW": 1000,
+          "/FontDescriptor": "20 0 R",
+          "/Subtype": "/CIDFontType0",
+          "/Type": "/Font"
+        }
+      },
+      "obj:22 0 R": {
+        "value": {
+          "/BaseFont": "/HiddenHorzOCR",
+          "/DescendantFonts": [
+            "21 0 R"
+          ],
+          "/Encoding": "/Identity-H",
+          "/Subtype": "/Type0",
+          "/ToUnicode": "13 0 R",
+          "/Type": "/Font"
+        }
+      },
+      "obj:23 0 R": {
+        "value": {
+          "/Ascent": 1000,
+          "/CapHeight": 1000,
+          "/Descent": -250,
+          "/Flags": 4,
+          "/FontBBox": [
+            0,
+            -250,
+            1000,
+            1000
+          ],
+          "/FontFile3": "14 0 R",
+          "/FontName": "/HiddenVertOCR",
+          "/ItalicAngle": 0,
+          "/MissingWidth": 1000,
+          "/StemH": 100,
+          "/StemV": 100,
+          "/Type": "/FontDescriptor",
+          "/XHeight": 1000
+        }
+      },
+      "obj:24 0 R": {
+        "value": {
+          "/BaseFont": "/HiddenVertOCR",
+          "/CIDSystemInfo": {
+            "/Ordering": "u:Identity",
+            "/Registry": "u:Adobe",
+            "/Supplement": 0
+          },
+          "/DW2": [
+            880,
+            -1000
+          ],
+          "/FontDescriptor": "23 0 R",
+          "/Subtype": "/CIDFontType0",
+          "/Type": "/Font"
+        }
+      },
+      "obj:25 0 R": {
+        "value": {
+          "/BaseFont": "/HiddenVertOCR",
+          "/DescendantFonts": [
+            "24 0 R"
+          ],
+          "/Encoding": "/Identity-V",
+          "/Subtype": "/Type0",
+          "/ToUnicode": "15 0 R",
+          "/Type": "/Font"
+        }
+      },
+      "obj:26 0 R": {
+        "stream": {
+          "dict": {
+            "/Filter": "/FlateDecode",
+            "/I": 81,
+            "/Length": 70,
+            "/S": 38
+          }
+        }
+      },
+      "obj:27 0 R": {
+        "stream": {
+          "dict": {
+            "/BBox": [
+              0,
+              0,
+              18.3303,
+              99.0828
+            ],
+            "/FormType": 1,
+            "/Length": 64,
+            "/Matrix": [
+              1,
+              0,
+              0,
+              1,
+              498.8049,
+              644.3672
+            ],
+            "/Resources": {
+              "/ExtGState": {
+                "/GS0": {
+                  "/BM": "/Multiply",
+                  "/CA": 1,
+                  "/Type": "/ExtGState",
+                  "/ca": 1
+                }
+              }
+            },
+            "/Subtype": "/Form",
+            "/Type": "/XObject"
+          }
+        }
+      },
+      "obj:28 0 R": {
+        "value": {
+          "/AP": {
+            "/N": "27 0 R"
+          },
+          "/C": [
+            1,
+            0.8,
+            0
+          ],
+          "/CA": 0.5,
+          "/Contents": "u:test-app 検証コメント (highlight)",
+          "/NM": "u:test-verify-hl-1",
+          "/QuadPoints": [
+            498.8049,
+            743.45,
+            517.1352,
+            743.45,
+            498.8049,
+            644.3672,
+            517.1352,
+            644.3672
+          ],
+          "/Rect": [
+            498.8049,
+            644.3672,
+            517.1352,
+            743.45
+          ],
+          "/Subtype": "/Highlight",
+          "/Type": "/Annot"
+        }
+      },
+      "obj:29 0 R": {
+        "value": {
+          "/C": [
+            0.9,
+            0.2,
+            0.3
+          ],
+          "/CA": 0.5,
+          "/Contents": "u:test-app 検証コメント (underline)",
+          "/NM": "u:test-verify-ul-1",
+          "/QuadPoints": [
+            498.8049,
+            644.3672,
+            517.1352,
+            644.3672,
+            498.8049,
+            545.2844,
+            517.1352,
+            545.2844
+          ],
+          "/Rect": [
+            498.8049,
+            545.2844,
+            517.1352,
+            644.3672
+          ],
+          "/Subtype": "/Underline",
+          "/Type": "/Annot"
+        }
+      },
+      "obj:30 0 R": {
+        "stream": {
+          "dict": {
+            "/ID": [
+              "b:3c21700b366c3cf85666613cc41b80ad",
+              "b:ecfc534176a145e8aec04061783d0e5e"
+            ],
+            "/Index": [
+              9,
+              1,
+              27,
+              4
+            ],
+            "/Info": "6 0 R",
+            "/Length": 35,
+            "/Prev": 116,
+            "/Root": "8 0 R",
+            "/Size": 31,
+            "/Type": "/XRef",
+            "/W": [
+              1,
+              4,
+              2
+            ]
+          }
+        }
+      },
+      "trailer": {
+        "value": {
+          "/ID": [
+            "b:3c21700b366c3cf85666613cc41b80ad",
+            "b:ecfc534176a145e8aec04061783d0e5e"
+          ],
+          "/Index": [
+            9,
+            1,
+            27,
+            4
+          ],
+          "/Info": "6 0 R",
+          "/Length": 35,
+          "/Prev": 116,
+          "/Root": "8 0 R",
+          "/Size": 31,
+          "/Type": "/XRef",
+          "/W": [
+            1,
+            4,
+            2
+          ]
+        }
+      }
+    }
+  ]
+}
