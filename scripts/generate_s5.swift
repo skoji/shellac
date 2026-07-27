@@ -28,6 +28,10 @@ let annotation = PDFAnnotation(
     withProperties: nil)
 annotation.color = NSColor.yellow.withAlphaComponent(0.5)
 _ = annotation.setValue("shellac-s5-seed", forAnnotationKey: .name)
+// userName backs the annotation's /T (author) key. Left unset, PDFKit fills
+// it in with the running account's real full name, which must not leak into
+// a published fixture.
+annotation.userName = "shellac-corpus"
 page.addAnnotation(annotation)
 
 guard doc.write(to: outURL) else {
