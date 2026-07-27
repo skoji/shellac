@@ -53,9 +53,11 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
         .collect();
 
     let env_lines = env_versions(&eng);
-    let md = build_report(&results, &env_lines, &rfc3339_utc_now());
-    let sanitized = build_sanitizer(opts).apply(&md);
-    std::fs::write(&opts.out, sanitized).map_err(|e| e.to_string())?;
+    let sanitizer = build_sanitizer(opts);
+    let md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
+    // Final whole-document pass as a safety net for anything assembled
+    // outside the per-field sanitization.
+    std::fs::write(&opts.out, sanitizer.apply(&md)).map_err(|e| e.to_string())?;
     eprintln!("report written to {}", opts.out);
     Ok(())
 }

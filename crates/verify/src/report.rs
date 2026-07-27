@@ -4,6 +4,7 @@
 use crate::consts::{CELL_VOCAB_NOTE, CHECK_DEFS};
 use crate::encrypted::EncMode;
 use crate::sample::SampleResult;
+use crate::sanitize::Sanitizer;
 use crate::scenario::Scenario;
 use crate::util::{bracket_list, trunc};
 
@@ -110,14 +111,17 @@ pub fn aggregate_check(res: &SampleResult, id: &str) -> String {
     }
 }
 
-fn one_line(s: &str) -> String {
-    trunc(s, 400).replace('\n', " ")
+/// Sanitizes tool-derived text, then truncates for a table cell. The
+/// sanitizer must run before truncation so a path cut in half cannot
+/// escape replacement.
+fn one_line(s: &str, san: &Sanitizer) -> String {
+    trunc(&san.apply(s), 400).replace('\n', " ")
 }
 
-fn scenario_section(out: &mut String, sc: &Scenario) {
+fn scenario_section(out: &mut String, sc: &Scenario, san: &Sanitizer) {
     out.push_str(&format!("#### Scenario: {}\n\n", sc.name));
     if !sc.fatal.is_empty() {
-        out.push_str(&format!("**FATAL**: {}\n\n", sc.fatal));
+        out.push_str(&format!("**FATAL**: {}\n\n", san.apply(&sc.fatal)));
         return;
     }
     out.push_str("| Check | Result | Detail |\n|---|---|---|\n");
@@ -126,7 +130,7 @@ fn scenario_section(out: &mut String, sc: &Scenario) {
             "| {} | {} | {} |\n",
             c.id,
             mark(c.pass),
-            one_line(&c.detail)
+            one_line(&c.detail, san)
         ));
     }
     out.push('\n');
@@ -182,12 +186,19 @@ fn collect_fail_logs(r: &SampleResult) -> Vec<String> {
 
 /// Builds the complete matrix markdown. `env_lines` are pre-rendered
 /// environment bullet lines; `generated_at` is an RFC3339 timestamp.
-pub fn build_report(results: &[SampleResult], env_lines: &str, generated_at: &str) -> String {
+/// `san` rewrites machine-specific strings in quoted tool output; it is
+/// applied before any truncation.
+pub fn build_report(
+    results: &[SampleResult],
+    env_lines: &str,
+    generated_at: &str,
+    san: &Sanitizer,
+) -> String {
     let mut sb = String::new();
     sb.push_str("# Incremental-save verification matrix\n\n");
     sb.push_str(&format!("Generated: {generated_at}\n\n"));
     sb.push_str("## Environment\n\n");
-    sb.push_str(env_lines);
+    sb.push_str(&san.apply(env_lines));
     sb.push_str("\n## Summary matrix\n\n");
 
     // Data-driven legend.
@@ -205,7 +216,7 @@ pub fn build_report(results: &[SampleResult], env_lines: &str, generated_at: &st
     sb.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for r in results {
         if !r.fatal_err.is_empty() {
-            let mut row = vec![r.name.clone(), format!("**FATAL**: {}", r.fatal_err)];
+            let mut row = vec![r.name.clone(), format!("**FATAL**: {}", one_line(&r.fatal_err, san))];
             row.extend(std::iter::repeat_n(String::new(), 10));
             sb.push_str(&format!("| {} |\n", row.join(" | ")));
             continue;
@@ -240,7 +251,7 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
         let needle = if r.anchor.found {
             r.anchor.needle.clone()
         } else if !r.anchor_err.is_empty() {
-            format!("(error: {})", r.anchor_err)
+            format!("(error: {})", one_line(&r.anchor_err, san))
         } else {
             "(no anchor text on this page)".to_string()
         };
@@ -275,13 +286,13 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
     }
 
     // Encrypted fixtures.
-    build_encrypted_section(&mut sb, results);
+    build_encrypted_section(&mut sb, results, san);
 
     // Per-sample sections.
     for r in results {
         sb.push_str(&format!("\n## {}\n\n", r.name));
         if !r.fatal_err.is_empty() {
-            sb.push_str(&format!("**FATAL**: {}\n", r.fatal_err));
+            sb.push_str(&format!("**FATAL**: {}\n", san.apply(&r.fatal_err)));
             continue;
         }
         if r.enc_mode == EncMode::RefusedUnchanged {
@@ -290,10 +301,10 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
                 "- size: {} bytes / %%EOF: {}\n",
                 r.base_size, r.base_eof
             ));
-            sb.push_str(&format!("- refused: {}\n\n", r.enc_refused_note));
+            sb.push_str(&format!("- refused: {}\n\n", san.apply(&r.enc_refused_note)));
             if !r.enc_add_fatal_msg.is_empty() {
                 sb.push_str("### Raw log (engine add stderr)\n\n```\n");
-                sb.push_str(&trunc(&r.enc_add_fatal_msg, 1500));
+                sb.push_str(&trunc(&san.apply(&r.enc_add_fatal_msg), 1500));
                 sb.push_str("\n```\n");
             }
             continue;
@@ -314,23 +325,23 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
         ));
 
         sb.push_str("### add / modify-comment / add-multiline / remove\n\n");
-        scenario_section(&mut sb, &r.add);
+        scenario_section(&mut sb, &r.add, san);
         if !r.modified_skipped {
-            scenario_section(&mut sb, &r.modified);
+            scenario_section(&mut sb, &r.modified, san);
         } else {
             sb.push_str("#### Scenario: modify-comment\n\n");
-            sb.push_str(&format!("{}\n\n", r.modified.fatal));
+            sb.push_str(&format!("{}\n\n", san.apply(&r.modified.fatal)));
         }
         if !r.add_multiline_skipped {
-            scenario_section(&mut sb, &r.add_multiline);
+            scenario_section(&mut sb, &r.add_multiline, san);
         } else {
             sb.push_str("#### Scenario: add-multiline\n\n");
-            sb.push_str(&format!("{}\n\n", r.add_multiline.fatal));
+            sb.push_str(&format!("{}\n\n", san.apply(&r.add_multiline.fatal)));
         }
-        scenario_section(&mut sb, &r.removed);
+        scenario_section(&mut sb, &r.removed, san);
 
         sb.push_str("### loop (10 incremental saves)\n\n");
-        sb.push_str(&format!("C8: {} — {}\n\n", mark(r.c8_pass), r.c8_detail));
+        sb.push_str(&format!("C8: {} — {}\n\n", mark(r.c8_pass), san.apply(&r.c8_detail)));
         sb.push_str(
             "| iter | size (bytes) | delta (bytes) | checks | objects in increment (recorded, not asserted) |\n|---|---|---|---|---|\n",
         );
@@ -381,7 +392,7 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
         if !logs.is_empty() {
             sb.push_str("### Failure logs\n\n```\n");
             for l in logs {
-                sb.push_str(&l);
+                sb.push_str(&san.apply(&l));
                 sb.push_str("\n\n");
             }
             sb.push_str("```\n");
@@ -390,7 +401,7 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
     sb
 }
 
-fn build_encrypted_section(sb: &mut String, results: &[SampleResult]) {
+fn build_encrypted_section(sb: &mut String, results: &[SampleResult], san: &Sanitizer) {
     sb.push_str("\n## Encrypted fixtures\n\n");
     sb.push_str(
         "Samples whose filename starts with an `S9-`/`S10-`/`S11-`/`S12-` prefix exercise the \
@@ -437,7 +448,7 @@ column is `refused-unchanged` when both hold. The standard check columns are n/a
                         "| {} | {} | n/a | {} |\n",
                         r.name,
                         label,
-                        one_line(&sc.fatal)
+                        one_line(&sc.fatal, san)
                     ));
                     continue;
                 }
@@ -447,7 +458,7 @@ column is `refused-unchanged` when both hold. The standard check columns are n/a
                         r.name,
                         label,
                         mark(c.pass),
-                        one_line(&c.detail)
+                        one_line(&c.detail, san)
                     )),
                     None => sb.push_str(&format!(
                         "| {} | {} | n/a | (check not attached) |\n",
@@ -642,7 +653,7 @@ mod tests {
             r.loop_sizes.push(1234 + (i + 1) * 10);
             r.loop_deltas.push(10);
         }
-        let md = build_report(&[r], "- qpdf version x\n- save engine: cli: engine\n", "2026-01-01T00:00:00Z");
+        let md = build_report(&[r], "- qpdf version x\n- save engine: cli: engine\n", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains("# Incremental-save verification matrix"));
         assert!(md.contains("| S1 | pass |"));
         assert!(md.contains("| Sample | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C11a | C11b | Encrypted |"));
@@ -664,7 +675,7 @@ mod tests {
         r.enc_bytes_equal = true;
         r.enc_refused_note = "status=encrypted_refused (want encrypted_refused), bytes=unchanged".to_string();
         r.enc_add_fatal_msg = "engine: refused".to_string();
-        let md = build_report(&[r], "", "2026-01-01T00:00:00Z");
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains("| S11-password-required | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | refused-unchanged |"));
         assert!(md.contains("### Baseline (refused-mode fixture)"));
         assert!(md.contains("### Raw log (engine add stderr)"));
@@ -678,8 +689,27 @@ mod tests {
             fatal_err: "baseline load: nope".to_string(),
             ..Default::default()
         };
-        let md = build_report(&[r], "", "2026-01-01T00:00:00Z");
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains("| S1 | **FATAL**: baseline load: nope |"));
+    }
+
+    #[test]
+    fn detail_is_sanitized_before_truncation() {
+        // A long path near the 400-byte cell boundary must not survive as
+        // a partial (unsanitizable) fragment: sanitize runs first.
+        let long_path = format!("/very/long/private/workdir-{}", "x".repeat(360));
+        let mut r = base_sample();
+        r.add.add(
+            "C6",
+            true,
+            format!("qpdf warning (exit 3, processing completed): WARNING: {long_path}/S1/add.pdf oddity"),
+        );
+        let mut san = crate::sanitize::Sanitizer::new();
+        san.add_path(&long_path, "work");
+        san.finalize();
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &san);
+        assert!(!md.contains("/very/long/private"), "path fragment leaked");
+        assert!(md.contains("WARNING: work/S1/add.pdf oddity"));
     }
 
     #[test]
@@ -692,7 +722,7 @@ mod tests {
             chosen: Rect::new(1.0, 2.0, 3.0, 4.0),
             center_distance: 1.234,
         });
-        let md = build_report(&[r], "", "2026-01-01T00:00:00Z");
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains(
             "- C11a needle selection: 3 candidates on page 1; selected (1.00,2.00)-(3.00,4.00) (center distance 1.23pt from PDFKit anchor bounds)"
         ));
