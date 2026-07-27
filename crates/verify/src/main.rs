@@ -1,10 +1,20 @@
-//! Rust harness for shellac's PDF incremental-save verification.
-//!
-//! This is a placeholder entry point. The check pipeline (matrix
-//! generation, sample orchestration, external-process checks) lands in a
-//! later task.
+use std::process::ExitCode;
 
-fn main() {
-    eprintln!("verify: not yet implemented");
-    std::process::exit(1);
+use verify::{cli, matrix};
+
+fn main() -> ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match cli::parse(&args) {
+        Ok(cli::Command::Matrix(opts)) => match matrix::run_matrix(&opts) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("verify matrix: {e}");
+                ExitCode::FAILURE
+            }
+        },
+        Err(msg) => {
+            eprintln!("{msg}");
+            ExitCode::from(2)
+        }
+    }
 }

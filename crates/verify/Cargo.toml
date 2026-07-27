@@ -5,3 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: helper JSON carries f64 geometry whose exact values
+# feed placement CSVs; the default lossy float parse can be 1 ULP off,
+# which shifts written /Rect digits.
+serde_json = { version = "1", features = ["float_roundtrip"] }
