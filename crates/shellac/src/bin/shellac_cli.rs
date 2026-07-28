@@ -23,19 +23,19 @@ use shellac::ops::{apply_ops, AnnotationOp, ApplyResult, OpsBatch, Status, UserP
 // (subtype, /NM, contents string, colors, /CA) must not drift.
 // ---------------------------------------------------------------------------
 
-const HIGHLIGHT_ID: &str = "shelff-verify-hl-1";
-const UNDERLINE_ID: &str = "shelff-verify-ul-1";
-const MULTILINE_HL_ID: &str = "shelff-verify-hl-multiline-1";
-const HIGHLIGHT_CONTENTS: &str = "shelff 検証コメント (highlight)";
-const UNDERLINE_CONTENTS: &str = "shelff 検証コメント (underline)";
-const MULTILINE_CONTENTS: &str = "shelff 検証コメント (multi-line highlight)";
+const HIGHLIGHT_ID: &str = "shellac-verify-hl-1";
+const UNDERLINE_ID: &str = "shellac-verify-ul-1";
+const MULTILINE_HL_ID: &str = "shellac-verify-hl-multiline-1";
+const HIGHLIGHT_CONTENTS: &str = "shellac 検証コメント (highlight)";
+const UNDERLINE_CONTENTS: &str = "shellac 検証コメント (underline)";
+const MULTILINE_CONTENTS: &str = "shellac 検証コメント (multi-line highlight)";
 const HIGHLIGHT_COLOR: [f32; 3] = [1.0, 0.8, 0.0];
 const UNDERLINE_COLOR: [f32; 3] = [0.9, 0.2, 0.3];
 const LOOP_COLOR: [f32; 3] = [0.2, 0.6, 1.0];
 const DEFAULT_OPACITY: f32 = 0.5;
 
 fn loop_id(i: u32) -> String {
-    format!("shelff-verify-loop-{i}")
+    format!("shellac-verify-loop-{i}")
 }
 
 fn usage() -> ! {
@@ -47,19 +47,19 @@ fn usage() -> ! {
          \x20   fixed coordinates when the flags are absent.\n  \
          shellac-cli remove <pdf>         remove the two verify annotations as one increment\n  \
          shellac-cli loop-one <i> <pdf> [--rect llx,lly,urx,ury]\n  \
-         \x20   add one highlight (shelff-verify-loop-<i>) as one increment.\n  \
+         \x20   add one highlight (shellac-verify-loop-<i>) as one increment.\n  \
          shellac-cli modify-comment <new-contents> <pdf>\n  \
-         \x20   change the /Contents of shelff-verify-hl-1 as one increment.\n  \
+         \x20   change the /Contents of shellac-verify-hl-1 as one increment.\n  \
          shellac-cli add-multiline <pdf> --hl-quads \"x0,y0,x1,y1,x2,y2,x3,y3;...\"\n  \
-         \x20   add one Highlight (shelff-verify-hl-multiline-1) whose\n  \
+         \x20   add one Highlight (shellac-verify-hl-multiline-1) whose\n  \
          \x20   /QuadPoints spans N ≥ 2 rectangles (semicolon-separated,\n  \
          \x20   each with 4 TL, TR, BL, BR points in user space) —\n  \
          \x20   the per-line marker regression.\n  \
          shellac-cli check-ap <pdf>\n  \
          \x20   inspect <pdf> and assert: the Highlight named\n  \
-         \x20   shelff-verify-hl-1 (or -multiline-1) carries /AP /N\n  \
+         \x20   shellac-verify-hl-1 (or -multiline-1) carries /AP /N\n  \
          \x20   pointing at a Form XObject, and the Underline named\n  \
-         \x20   shelff-verify-ul-1 does NOT carry /AP — the\n  \
+         \x20   shellac-verify-ul-1 does NOT carry /AP — the\n  \
          \x20   self-generated Highlight AP regression."
     );
     std::process::exit(1);
@@ -248,7 +248,7 @@ fn build_add_op(
 
 fn build_remove_op(index: u32, id: &str, subtype: &str) -> AnnotationOp {
     // user_point is only consulted when the /NM lookup fails; since every
-    // /NM we ever emit ("shelff-verify-*") round-trips through the same
+    // /NM we ever emit ("shellac-verify-*") round-trips through the same
     // batch, the fallback is unreachable in the verification harness. Pass
     // (0, 0) rather than plumbing rects the CLI does not have.
     AnnotationOp::Remove {
@@ -332,9 +332,9 @@ fn run_and_report(path: &Path, subcommand: &str, batch: OpsBatch) -> ExitCode {
 // ---------------------------------------------------------------------------
 //
 // After `shellac-cli add` we expect:
-//   - shelff-verify-hl-1 (Highlight) to carry `/AP /N <ref>` pointing at
+//   - shellac-verify-hl-1 (Highlight) to carry `/AP /N <ref>` pointing at
 //     a Form XObject (the self-generated appearance stream).
-//   - shelff-verify-ul-1 (Underline) to NOT carry `/AP` — the AP is
+//   - shellac-verify-ul-1 (Underline) to NOT carry `/AP` — the AP is
 //     Highlight-only.
 //
 // The Highlight name is checked against both HIGHLIGHT_ID and
@@ -491,7 +491,7 @@ fn main() -> ExitCode {
             }
             let path = Path::new(&args[3]);
             let rect = rect_flag(&args, "--rect", legacy_loop_rect(i));
-            let contents = format!("shelff loop 検証 {i}");
+            let contents = format!("shellac loop 検証 {i}");
             let batch = OpsBatch {
                 ops: vec![build_add_op(
                     0,
