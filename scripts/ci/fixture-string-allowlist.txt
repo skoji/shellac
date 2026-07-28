@@ -1,0 +1,29 @@
+# Allowlist of string values that may appear in the committed fixtures under
+# the identity-bearing keys scanned by audit-fixtures.sh (/T, /Contents,
+# /Author, /Title, /Creator, /Producer, /Subject, /Keywords).
+#
+# The audit asserts that every such value is listed here, rather than
+# scanning for particular strings that must be absent: fixtures must not
+# carry author-identifying strings, and only an allowlist can state that as
+# a property of the file instead of as a list of things someone thought to
+# look for.
+#
+# Values are compared exactly as they appear in the QDF-expanded PDF, so
+# escapes are part of the entry (a literal parenthesis is written \( or \)).
+# Regenerating a fixture on a different toolchain changes its /Producer and
+# is expected to fail this audit until the new value is reviewed and added.
+#
+# Blank lines and lines starting with # are ignored.
+
+# Annotation author (/T) used by every annotation this corpus seeds.
+shellac-corpus
+
+# Annotation bodies (/Contents) of the S4 seed annotations.
+shellac S4 seed highlight
+shellac S4 seed note
+shellac S4 seed underline
+
+# Producers of the tools that wrote the fixtures.
+Adobe Acrobat 26 Paper Capture Plug-in
+macOS Version 26.5.2 \(Build 25F84\) Quartz PDFContext
+macOS Version 26.5.2 \(Build 25F84\) Quartz PDFContext, AppendMode 1.1

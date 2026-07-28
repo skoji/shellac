@@ -34,6 +34,36 @@ a single report across the whole corpus.
 Further detail on the check catalogue, the corpus, and how to run the
 harness will be added as those pieces land.
 
+## Continuous integration
+
+Running the full matrix means driving a save engine, so CI currently covers
+the parts that need no save operation: the harness's own tests, the corpus
+generators, and the properties of the committed fixtures. A full-matrix
+workflow will follow once a public save CLI exists.
+
+Each check is a script under `scripts/ci/`, so any CI failure can be
+reproduced locally by running the same command:
+
+```sh
+bash scripts/ci/check-generated-samples.sh     # regenerate S3, S8..S12 and assert their structure
+bash scripts/ci/audit-fixtures.sh              # committed fixtures carry no identifying content
+bash scripts/ci/check-fixture-invariants.sh    # S4 prefix/revision/annotation and S5 xref invariants
+bash scripts/ci/build-swift-helpers.sh         # compile the PDFKit helpers (macOS)
+```
+
+`check-generated-samples.sh` takes an optional directory to build the
+samples in; passing one keeps them between runs, which is worth doing
+locally because S3 is rendered and OCR'd from scratch.
+
+## Known exceptions
+
+`corpus/known-exceptions.json` records check outcomes that are understood
+and accepted rather than treated as defects — for example a position check
+whose two measurement paths disagree about vertical Japanese text. Each
+entry names the samples, checks, and scenarios it covers and states why, so
+that tolerating an outcome is a reviewable decision in the repository rather
+than a special case buried in the harness.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
