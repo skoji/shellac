@@ -24,11 +24,7 @@ fn matrix_runs_on_s1() {
     let _ = std::fs::remove_dir_all(&tmp);
     let samples = tmp.join("samples");
     std::fs::create_dir_all(&samples).unwrap();
-    std::fs::copy(
-        repo.join("corpus/fixtures/S1.pdf"),
-        samples.join("S1.pdf"),
-    )
-    .unwrap();
+    std::fs::copy(repo.join("corpus/fixtures/S1.pdf"), samples.join("S1.pdf")).unwrap();
     let out = tmp.join("matrix.md");
 
     let status = Command::new(env!("CARGO_BIN_EXE_verify"))
@@ -56,10 +52,7 @@ fn matrix_runs_on_s1() {
 
     let md = std::fs::read_to_string(&out).unwrap();
     assert!(md.contains("# Incremental-save verification matrix"));
-    assert!(
-        md.contains("| S1 |"),
-        "summary row for S1 missing:\n{md}"
-    );
+    assert!(md.contains("| S1 |"), "summary row for S1 missing:\n{md}");
     assert!(md.contains("#### Scenario: add"));
     assert!(md.contains("### loop (10 incremental saves)"));
     // Sanitization: no run-local absolute paths, and the nm prefix is

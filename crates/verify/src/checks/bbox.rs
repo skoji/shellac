@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 
 use crate::anchor::TextAnchor;
 use crate::geom::{
-    center_distance, derive_highlight_rect, derive_loop_rect, derive_underline_rect,
-    rect_device_top_left_to_user, Rect, POS_TOLERANCE,
+    POS_TOLERANCE, Rect, center_distance, derive_highlight_rect, derive_loop_rect,
+    derive_underline_rect, rect_device_top_left_to_user,
 };
 use crate::proc::run;
 use crate::util::trunc;
@@ -146,7 +146,9 @@ pub fn html_unescape(s: &str) -> String {
             "quot" => Some('"'),
             "apos" => Some('\''),
             _ => {
-                if let Some(num) = entity.strip_prefix("#x").or_else(|| entity.strip_prefix("#X"))
+                if let Some(num) = entity
+                    .strip_prefix("#x")
+                    .or_else(|| entity.strip_prefix("#X"))
                 {
                     u32::from_str_radix(num, 16).ok().and_then(char::from_u32)
                 } else if let Some(num) = entity.strip_prefix('#') {
@@ -173,10 +175,7 @@ pub fn html_unescape(s: &str) -> String {
 
 /// Runs `pdftotext -bbox-layout` restricted to one page and parses the
 /// page dims and words.
-pub fn pdftotext_bbox_words(
-    path: &str,
-    page: i64,
-) -> Result<(f64, f64, Vec<BboxWord>), String> {
+pub fn pdftotext_bbox_words(path: &str, page: i64) -> Result<(f64, f64, Vec<BboxWord>), String> {
     let pg = format!("{page}");
     let r = run(
         "pdftotext",
@@ -430,7 +429,10 @@ mod tests {
 
     #[test]
     fn html_unescape_variants() {
-        assert_eq!(html_unescape("a&lt;b&gt;c&quot;d&apos;e&amp;f"), "a<b>c\"d'e&f");
+        assert_eq!(
+            html_unescape("a&lt;b&gt;c&quot;d&apos;e&amp;f"),
+            "a<b>c\"d'e&f"
+        );
         assert_eq!(html_unescape("&#65;&#x42;"), "AB");
         assert_eq!(html_unescape("&unknown;&"), "&unknown;&");
     }

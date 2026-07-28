@@ -97,7 +97,10 @@ mod tests {
         let mut s = Sanitizer::new();
         s.add_literal("secret-prefix", "<nm>");
         s.finalize();
-        assert_eq!(s.apply("present=[secret-prefix-hl-1]"), "present=[<nm>-hl-1]");
+        assert_eq!(
+            s.apply("present=[secret-prefix-hl-1]"),
+            "present=[<nm>-hl-1]"
+        );
     }
 
     #[test]

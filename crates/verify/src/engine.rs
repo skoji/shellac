@@ -41,14 +41,7 @@ impl SaveEngine for CliEngine {
     }
 
     fn add(&self, path: &str, hl: Rect, ul: Rect) -> Result<(), String> {
-        self.run_args(&[
-            "add",
-            path,
-            "--hl-rect",
-            &hl.csv(),
-            "--ul-rect",
-            &ul.csv(),
-        ])
+        self.run_args(&["add", path, "--hl-rect", &hl.csv(), "--ul-rect", &ul.csv()])
     }
 
     fn remove(&self, path: &str) -> Result<(), String> {

@@ -39,9 +39,10 @@ pub fn decode_string(s: &str) -> String {
         return rest.to_string();
     }
     if let Some(hex) = s.strip_prefix("b:")
-        && let Some(bytes) = decode_hex(hex) {
-            return String::from_utf8_lossy(&bytes).into_owned();
-        }
+        && let Some(bytes) = decode_hex(hex)
+    {
+        return String::from_utf8_lossy(&bytes).into_owned();
+    }
     s.to_string()
 }
 
@@ -190,30 +191,31 @@ fn walk(v: &Value, res: &mut BTreeMap<String, NmInfo>) {
             if let Some(raw) = map.get("/NM").and_then(|x| x.as_str()) {
                 let nm = decode_string(raw);
                 if let Some(slot) = res.get_mut(&nm)
-                    && !slot.found {
-                        let mut info = NmInfo {
-                            found: true,
-                            has_ap: map.contains_key("/AP"),
-                            ..Default::default()
-                        };
-                        if let Some(rect_any) = map.get("/Rect").and_then(|x| x.as_array())
-                            && rect_any.len() == 4 {
-                                let nums: Vec<f64> =
-                                    rect_any.iter().filter_map(|x| x.as_f64()).collect();
-                                if nums.len() == 4 {
-                                    info.rect = Some([nums[0], nums[1], nums[2], nums[3]]);
-                                }
-                            }
-                        if let Some(quads_any) = map.get("/QuadPoints").and_then(|x| x.as_array())
-                            && !quads_any.is_empty() {
-                                let nums: Vec<f64> =
-                                    quads_any.iter().filter_map(|x| x.as_f64()).collect();
-                                if nums.len() == quads_any.len() {
-                                    info.quad_points = Some(nums);
-                                }
-                            }
-                        *slot = info;
+                    && !slot.found
+                {
+                    let mut info = NmInfo {
+                        found: true,
+                        has_ap: map.contains_key("/AP"),
+                        ..Default::default()
+                    };
+                    if let Some(rect_any) = map.get("/Rect").and_then(|x| x.as_array())
+                        && rect_any.len() == 4
+                    {
+                        let nums: Vec<f64> = rect_any.iter().filter_map(|x| x.as_f64()).collect();
+                        if nums.len() == 4 {
+                            info.rect = Some([nums[0], nums[1], nums[2], nums[3]]);
+                        }
                     }
+                    if let Some(quads_any) = map.get("/QuadPoints").and_then(|x| x.as_array())
+                        && !quads_any.is_empty()
+                    {
+                        let nums: Vec<f64> = quads_any.iter().filter_map(|x| x.as_f64()).collect();
+                        if nums.len() == quads_any.len() {
+                            info.quad_points = Some(nums);
+                        }
+                    }
+                    *slot = info;
+                }
             }
             for vv in map.values() {
                 walk(vv, res);
@@ -285,9 +287,10 @@ pub fn evaluate_c6(
         }
         if let Ok(map) = nm
             && let Some(info) = map.get(id)
-                && info.found {
-                    ap_by_id.push((id.clone(), info.has_ap));
-                }
+            && info.found
+        {
+            ap_by_id.push((id.clone(), info.has_ap));
+        }
     }
     for id in expect_absent {
         let (object, attached) = lookup(id);
@@ -368,7 +371,10 @@ pub fn evaluate_c6_quads(
     if !got.is_multiple_of(8) {
         return (
             false,
-            format!("{}: /QuadPoints has {} floats, not a multiple of 8", qc.id, got),
+            format!(
+                "{}: /QuadPoints has {} floats, not a multiple of 8",
+                qc.id, got
+            ),
             vec![format!(
                 "C6-quads {}: {} floats, not multiple of 8",
                 qc.id, got
@@ -627,6 +633,9 @@ mod tests {
             &nm,
         );
         assert!(!pass2);
-        assert_eq!(detail2, "bad18: /QuadPoints has 18 floats, not a multiple of 8");
+        assert_eq!(
+            detail2,
+            "bad18: /QuadPoints has 18 floats, not a multiple of 8"
+        );
     }
 }

@@ -5,14 +5,14 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::anchor::TextAnchor;
-use crate::checks::bbox::{check_c11a, NeedleSelection, PosCheck};
-use crate::checks::pdfkit::{evaluate_c11b, evaluate_c7, pdfkit_check};
+use crate::checks::audit::{IncAudit, audit_increment};
+use crate::checks::bbox::{NeedleSelection, PosCheck, check_c11a};
+use crate::checks::pdfkit::{evaluate_c7, evaluate_c11b, pdfkit_check};
 use crate::checks::prefix::check_prefix;
 use crate::checks::producer::producer_info;
-use crate::checks::qpdf::{evaluate_c6, evaluate_c6_quads, QpdfDoc, QuadCheck};
+use crate::checks::qpdf::{QpdfDoc, QuadCheck, evaluate_c6, evaluate_c6_quads};
 use crate::checks::text::{check_c4, check_c5};
-use crate::checks::audit::{audit_increment, IncAudit};
-use crate::state::{load_state, FileState};
+use crate::state::{FileState, load_state};
 use crate::util::trunc;
 
 #[derive(Clone, Debug)]

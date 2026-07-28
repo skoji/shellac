@@ -77,7 +77,10 @@ impl Rect {
 
     /// The wire format used by the save engine's rect flags.
     pub fn csv(&self) -> String {
-        format!("{:.4},{:.4},{:.4},{:.4}", self.llx, self.lly, self.urx, self.ury)
+        format!(
+            "{:.4},{:.4},{:.4},{:.4}",
+            self.llx, self.lly, self.urx, self.ury
+        )
     }
 }
 
@@ -202,12 +205,7 @@ pub fn legacy_underline_rect() -> Rect {
 }
 
 pub fn legacy_loop_rect(i: i64) -> Rect {
-    Rect::new(
-        100.0,
-        (180 + 20 * i) as f64,
-        300.0,
-        (196 + 20 * i) as f64,
-    )
+    Rect::new(100.0, (180 + 20 * i) as f64, 300.0, (196 + 20 * i) as f64)
 }
 
 #[cfg(test)]
@@ -255,7 +253,10 @@ mod tests {
     fn derive_underline_shifts_down_by_height() {
         let b = Rect::new(10.0, 20.0, 30.0, 40.0);
         let mb = Rect::new(0.0, 0.0, 100.0, 100.0);
-        assert_eq!(derive_underline_rect(b, mb), Rect::new(10.0, 0.0, 30.0, 20.0));
+        assert_eq!(
+            derive_underline_rect(b, mb),
+            Rect::new(10.0, 0.0, 30.0, 20.0)
+        );
     }
 
     #[test]
@@ -263,7 +264,10 @@ mod tests {
         let b = Rect::new(10.0, 20.0, 30.0, 40.0);
         let mb = Rect::new(0.0, 0.0, 100.0, 200.0);
         // i=2: dy = 2 * (20 + 4) = 48
-        assert_eq!(derive_loop_rect(b, mb, 2), Rect::new(10.0, 68.0, 30.0, 88.0));
+        assert_eq!(
+            derive_loop_rect(b, mb, 2),
+            Rect::new(10.0, 68.0, 30.0, 88.0)
+        );
     }
 
     #[test]
@@ -278,8 +282,14 @@ mod tests {
 
     #[test]
     fn legacy_rects() {
-        assert_eq!(legacy_highlight_rect(), Rect::new(100.0, 100.0, 300.0, 120.0));
-        assert_eq!(legacy_underline_rect(), Rect::new(100.0, 140.0, 300.0, 160.0));
+        assert_eq!(
+            legacy_highlight_rect(),
+            Rect::new(100.0, 100.0, 300.0, 120.0)
+        );
+        assert_eq!(
+            legacy_underline_rect(),
+            Rect::new(100.0, 140.0, 300.0, 160.0)
+        );
         assert_eq!(legacy_loop_rect(3), Rect::new(100.0, 240.0, 300.0, 256.0));
     }
 
@@ -316,7 +326,10 @@ mod tests {
     #[test]
     fn negative_rotation_normalizes() {
         assert_eq!(rotated_dims(-90, 10.0, 20.0), (20.0, 10.0));
-        assert_eq!(page_space_to_user(-270, 100.0, 200.0, 5.0, 6.0), page_space_to_user(90, 100.0, 200.0, 5.0, 6.0));
+        assert_eq!(
+            page_space_to_user(-270, 100.0, 200.0, 5.0, 6.0),
+            page_space_to_user(90, 100.0, 200.0, 5.0, 6.0)
+        );
     }
 
     #[test]

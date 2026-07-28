@@ -68,7 +68,10 @@ mod tests {
 
     #[test]
     fn c4_fails_on_one_sided_error() {
-        let r = check_c4("real text", "PDFTOTEXT-ERROR: pdftotext: exit status 1 (bad)");
+        let r = check_c4(
+            "real text",
+            "PDFTOTEXT-ERROR: pdftotext: exit status 1 (bad)",
+        );
         assert!(!r.pass);
     }
 

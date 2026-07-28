@@ -62,8 +62,8 @@ pub fn find_text_anchor(bin: &str, path: &str, page: i64) -> Result<TextAnchor, 
             first_line(&r.stderr_str())
         ));
     }
-    let a: AnchorJson = serde_json::from_slice(&r.stdout)
-        .map_err(|e| format!("pdfkit_textbbox json: {e}"))?;
+    let a: AnchorJson =
+        serde_json::from_slice(&r.stdout).map_err(|e| format!("pdfkit_textbbox json: {e}"))?;
     let mut ta = TextAnchor {
         found: a.found,
         needle: a.needle,
