@@ -1,0 +1,30 @@
+# Expected number of %%EOF markers in each committed fixture.
+#
+# audit-fixtures.sh walks these markers to find the revisions a file ships
+# and to decide where its content ends. That makes the markers themselves
+# worth pinning: appending a string followed by an extra %%EOF would
+# otherwise move the end of the file past the appended bytes, which belong
+# to no revision and appear in no qpdf view. Requiring the count to match a
+# declared value means a marker cannot be added without saying so here.
+#
+# These are public structural properties of the corpus, documented in
+# corpus/README.md; check-fixture-invariants.sh asserts the S4 and S5 counts
+# independently on the macOS job.
+#
+# Format: <fixture name> <count>. Blank lines and lines starting with # are
+# ignored. The fixtures are committed and frozen, so a value changes only
+# when a fixture is deliberately regenerated -- the same arrangement as
+# fixture-string-allowlist.txt.
+
+# Linearized: one marker ends the first-page cross-reference section and one
+# ends the file. This is a linearization artifact, not two saved revisions.
+S1 2
+
+S2 1
+
+# S2 plus two PDFKit append-mode incremental saves, one marker each.
+S4 3
+
+S5 1
+
+S7 1

@@ -11,8 +11,10 @@
 #      strings, and asserting against an allowlist states that as a property
 #      of the file rather than as a list of specific names someone thought
 #      to look for
-#   3. no local filesystem paths are embedded anywhere in the bytes
-#   4. XMP metadata carries no identity properties
+#   3. the file ships the number of revisions it is declared to ship, and
+#      nothing but whitespace follows the last one
+#   4. no local filesystem paths are embedded anywhere in the bytes
+#   5. XMP metadata carries no identity properties
 #
 # Check 2 reads `qpdf --json` and covers every string in the document's
 # object structure, whatever key or object it sits under. That is what makes
@@ -48,6 +50,8 @@ repo_root="${script_dir}/../.."
 fixtures_dir="${repo_root}/corpus/fixtures"
 allowlist="${script_dir}/fixture-string-allowlist.txt"
 ci_require_file "${allowlist}"
+revisions="${script_dir}/fixture-revisions.txt"
+ci_require_file "${revisions}"
 
 # The committed fixtures, named explicitly so a stray locally-generated
 # sample in the same directory neither joins nor masks the audit.
@@ -60,6 +64,7 @@ string_re='"(u|b):(\\.|[^"\\])*"'
 # Strip comments and blank lines once, so the per-value lookup is a plain
 # fixed-string line match.
 { grep -v -E '^[[:space:]]*(#|$)' "${allowlist}" || true; } > "${CI_TMP}/allowed.txt"
+{ grep -v -E '^[[:space:]]*(#|$)' "${revisions}" || true; } > "${CI_TMP}/revisions.txt"
 
 for name in ${committed}; do
     pdf="${fixtures_dir}/${name}.pdf"
@@ -125,6 +130,23 @@ for name in ${committed}; do
         scan_strings "${prefix}" "${CI_TMP}/rev.json"
         revs_scanned=$((revs_scanned + 1))
     done < "${CI_TMP}/eof.txt"
+
+    # The markers decide both where the revisions are and where the file
+    # ends, so their number is pinned rather than taken from the file.
+    # Otherwise appending a string and a further %%EOF would move "the end
+    # of the file" past the appended bytes, which belong to no revision and
+    # show up in no qpdf view.
+    expected_eof=""
+    while read -r declared_name declared_count; do
+        if [ "${declared_name}" = "${name}" ]; then
+            expected_eof="${declared_count}"
+        fi
+    done < "${CI_TMP}/revisions.txt"
+    if [ -z "${expected_eof}" ]; then
+        ci_fail "${name}: no expected %%EOF count is declared in scripts/ci/fixture-revisions.txt"
+    else
+        ci_expect_eq "${name}: %%EOF markers" "${expected_eof}" "${rev}"
+    fi
 
     # Bytes after the final %%EOF belong to no revision, so nothing above
     # would look at them: qpdf reports the document, and appended bytes are
