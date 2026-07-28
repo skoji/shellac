@@ -32,9 +32,13 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: linux-cargo-${{ hashFiles('Cargo.lock') }}
+          key: linux-cargo-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
           restore-keys: linux-cargo-
 
+      # The toolchain comes from rust-toolchain.toml, which rustup reads on
+      # the first cargo invocation, so these steps run the same compiler,
+      # rustfmt and clippy as a local build.
+      #
       # The verify crate's own tests need no external tools: they run over
       # captured tool output committed under crates/verify/tests/fixtures.
       - name: Format

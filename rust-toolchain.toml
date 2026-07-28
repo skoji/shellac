@@ -1,0 +1,10 @@
+# Pins the toolchain for everyone: rustup reads this file, so a local build
+# and a CI build agree without either side naming a version.
+#
+# The version matters here beyond reproducibility. `cargo fmt --check` and
+# `clippy -D warnings` are enforced in CI, and both change what they accept
+# between releases, so an unpinned toolchain turns a routine rustup update
+# into a red build on an unrelated change.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
