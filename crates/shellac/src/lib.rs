@@ -205,9 +205,8 @@ pub unsafe extern "C" fn shellac_can_open(path: *const c_char) -> i32 {
                     // but we don't want to panic if that invariant ever
                     // changes upstream).
                     match doc.encryption_state.as_ref() {
-                        Some(state) if !state
-                            .permissions()
-                            .contains(lopdf::Permissions::ANNOTABLE) =>
+                        Some(state)
+                            if !state.permissions().contains(lopdf::Permissions::ANNOTABLE) =>
                         {
                             CAN_OPEN_ANNOTATIONS_RESTRICTED
                         }

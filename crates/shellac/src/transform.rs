@@ -183,11 +183,7 @@ pub fn rotated_dims(rotate: i32, uw: f64, uh: f64) -> (f64, f64) {
 /// (`PDFSelection.bounds(for:)`, `PDFAnnotation.bounds`) — those are
 /// already in user space. Use it for inputs authored in a
 /// `/Rotate`-applied display frame.
-pub fn page_space_to_user(
-    rotate: i32,
-    mb: UserSpaceRect,
-    p: PageSpacePoint,
-) -> UserSpacePoint {
+pub fn page_space_to_user(rotate: i32, mb: UserSpaceRect, p: PageSpacePoint) -> UserSpacePoint {
     let mx0 = mb.0.llx;
     let my0 = mb.0.lly;
     let mx1 = mb.0.urx;
@@ -212,11 +208,7 @@ pub fn page_space_to_user(
 /// already in user space (verified on device and on macOS). It
 /// remains the correct call for rectangles authored in a `/Rotate`-applied
 /// display frame (e.g. hand-computed layout at rotated extents).
-pub fn rect_page_space_to_user(
-    rotate: i32,
-    mb: UserSpaceRect,
-    r: PageSpaceRect,
-) -> UserSpaceRect {
+pub fn rect_page_space_to_user(rotate: i32, mb: UserSpaceRect, r: PageSpaceRect) -> UserSpaceRect {
     let r = r.0;
     let corners = [
         page_space_to_user(rotate, mb, PageSpacePoint { x: r.llx, y: r.lly }),
@@ -244,8 +236,12 @@ fn min_max_x(corners: &[UserSpacePoint; 4]) -> (f64, f64) {
     let mut lo = corners[0].x;
     let mut hi = corners[0].x;
     for c in &corners[1..] {
-        if c.x < lo { lo = c.x; }
-        if c.x > hi { hi = c.x; }
+        if c.x < lo {
+            lo = c.x;
+        }
+        if c.x > hi {
+            hi = c.x;
+        }
     }
     (lo, hi)
 }
@@ -254,8 +250,12 @@ fn min_max_y(corners: &[UserSpacePoint; 4]) -> (f64, f64) {
     let mut lo = corners[0].y;
     let mut hi = corners[0].y;
     for c in &corners[1..] {
-        if c.y < lo { lo = c.y; }
-        if c.y > hi { hi = c.y; }
+        if c.y < lo {
+            lo = c.y;
+        }
+        if c.y > hi {
+            hi = c.y;
+        }
     }
     (lo, hi)
 }
@@ -273,19 +273,34 @@ mod tests {
     }
 
     fn origin_mb() -> UserSpaceRect {
-        UserSpaceRect(Rect { llx: 0.0, lly: 0.0, urx: 612.0, ury: 792.0 })
+        UserSpaceRect(Rect {
+            llx: 0.0,
+            lly: 0.0,
+            urx: 612.0,
+            ury: 792.0,
+        })
     }
 
     // Non-origin-anchored MediaBox — Acrobat-OCR'd PDFs are typically shaped
     // this way. Every offset-MediaBox test below must succeed on this shape.
     fn offset_mb() -> UserSpaceRect {
-        UserSpaceRect(Rect { llx: 9.0, lly: 9.0, urx: 621.0, ury: 801.0 })
+        UserSpaceRect(Rect {
+            llx: 9.0,
+            lly: 9.0,
+            urx: 621.0,
+            ury: 801.0,
+        })
     }
 
     // A MediaBox where mb.llx != mb.lly, to catch formulas that conflate
     // mx0/my0.
     fn asymmetric_offset_mb() -> UserSpaceRect {
-        UserSpaceRect(Rect { llx: 9.0, lly: 5.0, urx: 621.0, ury: 797.0 })
+        UserSpaceRect(Rect {
+            llx: 9.0,
+            lly: 5.0,
+            urx: 621.0,
+            ury: 797.0,
+        })
     }
 
     fn ps_rect(llx: f64, lly: f64, urx: f64, ury: f64) -> PageSpaceRect {
@@ -320,7 +335,12 @@ mod tests {
         //          (100,240)->(372,100)  (300,200)->(412,300)
         let r = ps_rect(100.0, 200.0, 300.0, 240.0);
         let out = rect_page_space_to_user(90, origin_mb(), r);
-        let want = Rect { llx: 372.0, lly: 100.0, urx: 412.0, ury: 300.0 };
+        let want = Rect {
+            llx: 372.0,
+            lly: 100.0,
+            urx: 412.0,
+            ury: 300.0,
+        };
         assert!(rect_approx(out.0, want), "got {:?} want {:?}", out, want);
     }
 
@@ -349,7 +369,12 @@ mod tests {
         let r = ps_rect(100.0, 200.0, 300.0, 240.0);
         let out = rect_page_space_to_user(180, origin_mb(), r);
         // Corners: (512,592) (312,552) (512,552) (312,592)
-        let want = Rect { llx: 312.0, lly: 552.0, urx: 512.0, ury: 592.0 };
+        let want = Rect {
+            llx: 312.0,
+            lly: 552.0,
+            urx: 512.0,
+            ury: 592.0,
+        };
         assert!(rect_approx(out.0, want), "got {:?} want {:?}", out, want);
     }
 
@@ -368,7 +393,12 @@ mod tests {
         let r = ps_rect(100.0, 200.0, 300.0, 240.0);
         let out = rect_page_space_to_user(270, origin_mb(), r);
         // Corners: (200,692) (240,492) (240,692) (200,492)
-        let want = Rect { llx: 200.0, lly: 492.0, urx: 240.0, ury: 692.0 };
+        let want = Rect {
+            llx: 200.0,
+            lly: 492.0,
+            urx: 240.0,
+            ury: 692.0,
+        };
         assert!(rect_approx(out.0, want), "got {:?} want {:?}", out, want);
     }
 
@@ -408,7 +438,12 @@ mod tests {
         let ref_out = rect_page_space_to_user(90, mb, r);
         for rot in [90, 450, -270, 810] {
             let out = rect_page_space_to_user(rot, mb, r);
-            assert!(rect_approx(out.0, ref_out.0), "rotate={} got {:?}", rot, out);
+            assert!(
+                rect_approx(out.0, ref_out.0),
+                "rotate={} got {:?}",
+                rot,
+                out
+            );
         }
     }
 

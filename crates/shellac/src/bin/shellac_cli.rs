@@ -15,9 +15,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use lopdf::{Document, Object};
-use shellac::ops::{
-    apply_ops, AnnotationOp, ApplyResult, OpsBatch, Status, UserPoint, UserRect,
-};
+use shellac::ops::{apply_ops, AnnotationOp, ApplyResult, OpsBatch, Status, UserPoint, UserRect};
 
 // ---------------------------------------------------------------------------
 // Fixed constants. These are frozen: the corpus regression harness compares
@@ -86,10 +84,20 @@ struct Rect {
 }
 
 fn legacy_highlight_rect() -> Rect {
-    Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 }
+    Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    }
 }
 fn legacy_underline_rect() -> Rect {
-    Rect { llx: 100.0, lly: 140.0, urx: 300.0, ury: 160.0 }
+    Rect {
+        llx: 100.0,
+        lly: 140.0,
+        urx: 300.0,
+        ury: 160.0,
+    }
 }
 fn legacy_loop_rect(i: u32) -> Rect {
     Rect {
@@ -109,14 +117,23 @@ fn parse_rect(s: &str) -> Option<Rect> {
     for (i, p) in parts.iter().enumerate() {
         v[i] = p.trim().parse().ok()?;
     }
-    Some(Rect { llx: v[0], lly: v[1], urx: v[2], ury: v[3] })
+    Some(Rect {
+        llx: v[0],
+        lly: v[1],
+        urx: v[2],
+        ury: v[3],
+    })
 }
 
 fn rect_flag(args: &[String], flag: &str, default: Rect) -> Rect {
     for (i, a) in args.iter().enumerate() {
         if a == flag {
-            let Some(value) = args.get(i + 1) else { usage(); };
-            let Some(rect) = parse_rect(value) else { usage(); };
+            let Some(value) = args.get(i + 1) else {
+                usage();
+            };
+            let Some(rect) = parse_rect(value) else {
+                usage();
+            };
             return rect;
         }
     }
@@ -158,8 +175,12 @@ fn parse_quads(s: &str) -> Option<Vec<[f64; 2]>> {
 fn required_quads_flag(args: &[String], flag: &str) -> Vec<[f64; 2]> {
     for (i, a) in args.iter().enumerate() {
         if a == flag {
-            let Some(value) = args.get(i + 1) else { usage(); };
-            let Some(quads) = parse_quads(value) else { usage(); };
+            let Some(value) = args.get(i + 1) else {
+                usage();
+            };
+            let Some(quads) = parse_quads(value) else {
+                usage();
+            };
             return quads;
         }
     }
@@ -168,7 +189,12 @@ fn required_quads_flag(args: &[String], flag: &str) -> Vec<[f64; 2]> {
 
 impl Rect {
     fn to_user_rect(self) -> UserRect {
-        UserRect { llx: self.llx, lly: self.lly, urx: self.urx, ury: self.ury }
+        UserRect {
+            llx: self.llx,
+            lly: self.lly,
+            urx: self.urx,
+            ury: self.ury,
+        }
     }
 }
 
@@ -178,10 +204,18 @@ fn bbox_of_quads(quads: &[[f64; 2]]) -> UserRect {
     let (mut llx, mut lly) = (quads[0][0], quads[0][1]);
     let (mut urx, mut ury) = (quads[0][0], quads[0][1]);
     for p in &quads[1..] {
-        if p[0] < llx { llx = p[0]; }
-        if p[0] > urx { urx = p[0]; }
-        if p[1] < lly { lly = p[1]; }
-        if p[1] > ury { ury = p[1]; }
+        if p[0] < llx {
+            llx = p[0];
+        }
+        if p[0] > urx {
+            urx = p[0];
+        }
+        if p[1] < lly {
+            lly = p[1];
+        }
+        if p[1] > ury {
+            ury = p[1];
+        }
     }
     UserRect { llx, lly, urx, ury }
 }
@@ -363,8 +397,7 @@ fn check_ap(path: &Path) -> ExitCode {
                     .map(|n| n == b"Form")
                     .unwrap_or(false);
                 if !ok {
-                    failures
-                        .push("Highlight /AP /N does not point at a Form XObject".to_string());
+                    failures.push("Highlight /AP /N does not point at a Form XObject".to_string());
                 }
             }
         },
@@ -450,7 +483,9 @@ fn main() -> ExitCode {
             if args.len() < 4 {
                 usage();
             }
-            let Ok(i) = args[2].parse::<u32>() else { usage(); };
+            let Ok(i) = args[2].parse::<u32>() else {
+                usage();
+            };
             if i < 1 {
                 usage();
             }
@@ -477,12 +512,7 @@ fn main() -> ExitCode {
             let new_contents = &args[2];
             let path = Path::new(&args[3]);
             let batch = OpsBatch {
-                ops: vec![build_modify_op(
-                    0,
-                    HIGHLIGHT_ID,
-                    "Highlight",
-                    new_contents,
-                )],
+                ops: vec![build_modify_op(0, HIGHLIGHT_ID, "Highlight", new_contents)],
             };
             run_and_report(path, "modify-comment", batch)
         }
@@ -539,7 +569,15 @@ mod tests {
     #[test]
     fn parse_rect_accepts_four_floats() {
         let r = parse_rect("100,200,300,240").expect("parses");
-        assert!(rect_approx(r, Rect { llx: 100.0, lly: 200.0, urx: 300.0, ury: 240.0 }));
+        assert!(rect_approx(
+            r,
+            Rect {
+                llx: 100.0,
+                lly: 200.0,
+                urx: 300.0,
+                ury: 240.0
+            }
+        ));
     }
 
     #[test]
@@ -559,10 +597,8 @@ mod tests {
 
     #[test]
     fn parse_quads_multi_rect() {
-        let q = parse_quads(
-            "100,240,300,240,100,220,300,220;100,220,300,220,100,200,300,200",
-        )
-        .expect("parses");
+        let q = parse_quads("100,240,300,240,100,220,300,220;100,220,300,220,100,200,300,200")
+            .expect("parses");
         assert_eq!(q.len(), 8, "two rects = 8 points");
         assert_eq!(q[4], [100.0, 220.0]); // second rect TL
     }
@@ -584,9 +620,9 @@ mod tests {
             [300.0, 240.0],
             [100.0, 220.0],
             [300.0, 220.0],
-            [ 90.0, 220.0],
+            [90.0, 220.0],
             [280.0, 220.0],
-            [ 90.0, 190.0],
+            [90.0, 190.0],
             [280.0, 190.0],
         ];
         let b = bbox_of_quads(&quads);
