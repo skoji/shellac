@@ -108,7 +108,10 @@ pub struct UserPoint {
 
 impl UserPoint {
     fn into_user_space_point(self) -> UserSpacePoint {
-        UserSpacePoint { x: self.x, y: self.y }
+        UserSpacePoint {
+            x: self.x,
+            y: self.y,
+        }
     }
 }
 
@@ -252,21 +255,37 @@ pub struct ApplyResult {
 
 impl ApplyResult {
     fn parse_failed() -> Self {
-        Self { status: Status::ParseFailed, applied: 0, skipped: Vec::new() }
+        Self {
+            status: Status::ParseFailed,
+            applied: 0,
+            skipped: Vec::new(),
+        }
     }
     fn io_failed() -> Self {
-        Self { status: Status::IoFailed, applied: 0, skipped: Vec::new() }
+        Self {
+            status: Status::IoFailed,
+            applied: 0,
+            skipped: Vec::new(),
+        }
     }
     /// Encrypted PDF with no usable key — safety net. The file is left
     /// byte-for-byte untouched.
     pub(crate) fn encrypted_refused() -> Self {
-        Self { status: Status::EncryptedRefused, applied: 0, skipped: Vec::new() }
+        Self {
+            status: Status::EncryptedRefused,
+            applied: 0,
+            skipped: Vec::new(),
+        }
     }
     /// Empty-password auto-decrypted PDF whose `/P` disallows annotation
     /// edits — defense-in-depth refusal. The file is left byte-for-byte
     /// untouched.
     pub(crate) fn annotations_restricted() -> Self {
-        Self { status: Status::AnnotationsRestricted, applied: 0, skipped: Vec::new() }
+        Self {
+            status: Status::AnnotationsRestricted,
+            applied: 0,
+            skipped: Vec::new(),
+        }
     }
 }
 
@@ -364,7 +383,10 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                 contents,
             } => {
                 let Some(&page_id) = pages_by_index_0based.get(&page_index) else {
-                    skipped.push(Skipped { index, reason: SkipReason::AddPageNotFound });
+                    skipped.push(Skipped {
+                        index,
+                        reason: SkipReason::AddPageNotFound,
+                    });
                     continue;
                 };
 
@@ -376,7 +398,10 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                     .map(|v| v.iter().any(|n| n == &annot_id))
                     .unwrap_or(false);
                 if duplicate_in_prev || duplicate_in_batch {
-                    skipped.push(Skipped { index, reason: SkipReason::AddDuplicateNm });
+                    skipped.push(Skipped {
+                        index,
+                        reason: SkipReason::AddDuplicateNm,
+                    });
                     continue;
                 }
 
@@ -458,22 +483,22 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                 user_point,
             } => {
                 let Some(&page_id) = pages_by_index_0based.get(&page_index) else {
-                    skipped.push(Skipped { index, reason: SkipReason::RemovePageNotFound });
+                    skipped.push(Skipped {
+                        index,
+                        reason: SkipReason::RemovePageNotFound,
+                    });
                     continue;
                 };
-                match resolve_target(
-                    &idoc,
-                    page_id,
-                    annot_id.as_deref(),
-                    &subtype,
-                    user_point,
-                ) {
+                match resolve_target(&idoc, page_id, annot_id.as_deref(), &subtype, user_point) {
                     ResolveOutcome::Found(rid) => {
                         pending_remove.entry(page_index).or_default().push(rid);
                         applied += 1;
                     }
                     ResolveOutcome::NotFound => {
-                        skipped.push(Skipped { index, reason: SkipReason::RemoveTargetNotFound });
+                        skipped.push(Skipped {
+                            index,
+                            reason: SkipReason::RemoveTargetNotFound,
+                        });
                     }
                 }
             }
@@ -486,16 +511,13 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                 new_comment,
             } => {
                 let Some(&page_id) = pages_by_index_0based.get(&page_index) else {
-                    skipped.push(Skipped { index, reason: SkipReason::ModifyPageNotFound });
+                    skipped.push(Skipped {
+                        index,
+                        reason: SkipReason::ModifyPageNotFound,
+                    });
                     continue;
                 };
-                match resolve_target(
-                    &idoc,
-                    page_id,
-                    annot_id.as_deref(),
-                    &subtype,
-                    user_point,
-                ) {
+                match resolve_target(&idoc, page_id, annot_id.as_deref(), &subtype, user_point) {
                     ResolveOutcome::Found(rid) => {
                         // Apply the modify immediately: clone from prev,
                         // replace or remove /Contents, set_object at the
@@ -510,7 +532,10 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                         }
                     }
                     ResolveOutcome::NotFound => {
-                        skipped.push(Skipped { index, reason: SkipReason::ModifyTargetNotFound });
+                        skipped.push(Skipped {
+                            index,
+                            reason: SkipReason::ModifyTargetNotFound,
+                        });
                     }
                 }
             }
@@ -523,7 +548,11 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
     // queued into `pending_remove`, and modifies already written into
     // `new_document`, so it is 0 iff no bytes need to change.
     if applied == 0 {
-        return ApplyResult { status: Status::Ok, applied, skipped };
+        return ApplyResult {
+            status: Status::Ok,
+            applied,
+            skipped,
+        };
     }
 
     // Flush add/remove per page in a deterministic order (helps byte-level
@@ -537,7 +566,9 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
     touched_pages.dedup();
 
     for page_index in touched_pages {
-        let Some(&page_id) = pages_by_index_0based.get(&page_index) else { continue };
+        let Some(&page_id) = pages_by_index_0based.get(&page_index) else {
+            continue;
+        };
         // `append_annot_refs` / `remove_annot_refs` only fail on structural
         // problems (a page dict that isn't actually a dict, an /Annots key
         // whose type is bogus, etc.) — those are parse-level defects, not
@@ -557,7 +588,11 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
     }
 
     match save_incremental(path, &mut idoc) {
-        Ok(()) => ApplyResult { status: Status::Ok, applied, skipped },
+        Ok(()) => ApplyResult {
+            status: Status::Ok,
+            applied,
+            skipped,
+        },
         Err(_) => ApplyResult::io_failed(),
     }
 }

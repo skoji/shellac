@@ -23,13 +23,11 @@ use std::sync::Arc;
 
 use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
 use lopdf::{
-    Dictionary, Document, EncryptionState, EncryptionVersion, IncrementalDocument, Object, ObjectId,
-    Permissions, StringFormat,
+    Dictionary, Document, EncryptionState, EncryptionVersion, IncrementalDocument, Object,
+    ObjectId, Permissions, StringFormat,
 };
 
-use crate::annots::{
-    open_incremental_from_bytes, save_incremental_to_vec,
-};
+use crate::annots::{open_incremental_from_bytes, save_incremental_to_vec};
 use crate::ops::{apply_ops, ApplyResult, OpsBatch, SkipReason, Skipped, Status};
 use crate::transform::{Rect, UserSpaceRect};
 
@@ -57,7 +55,12 @@ fn make_fixture_pdf(
     make_fixture_pdf_with_mediabox(
         shape,
         rotate,
-        Rect { llx: 0.0, lly: 0.0, urx: 612.0, ury: 792.0 },
+        Rect {
+            llx: 0.0,
+            lly: 0.0,
+            urx: 612.0,
+            ury: 792.0,
+        },
         existing_annot,
     )
 }
@@ -212,7 +215,9 @@ fn assert_rect_approx(got: [f64; 4], want: [f64; 4]) {
         assert!(
             (got[i] - want[i]).abs() < 0.01,
             "/Rect[{}] = {} want {} (verbatim expected)",
-            i, got[i], want[i]
+            i,
+            got[i],
+            want[i]
         );
     }
 }
@@ -235,7 +240,11 @@ fn c1_prev_prefix_preserved_after_add() {
     assert_eq!(res.applied, 1);
     assert!(res.skipped.is_empty());
     assert!(post.len() > bytes.len(), "post must be strictly larger");
-    assert_eq!(&post[..bytes.len()], &bytes[..], "prev prefix must be verbatim");
+    assert_eq!(
+        &post[..bytes.len()],
+        &bytes[..],
+        "prev prefix must be verbatim"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -291,8 +300,14 @@ fn c3_increment_carries_nm_contents_rect() {
     // Only inspect the increment (bytes appended after the prev prefix).
     let inc = &post[bytes.len()..];
     assert!(contains_bytes(inc, b"/NM"), "increment must contain /NM");
-    assert!(contains_bytes(inc, b"/Contents"), "increment must contain /Contents");
-    assert!(contains_bytes(inc, b"/Rect"), "increment must contain /Rect");
+    assert!(
+        contains_bytes(inc, b"/Contents"),
+        "increment must contain /Contents"
+    );
+    assert!(
+        contains_bytes(inc, b"/Rect"),
+        "increment must contain /Rect"
+    );
     // UTF-16BE BOM (0xFE 0xFF) present in the increment as part of the
     // /Contents literal. lopdf emits hex strings as e.g. <FEFF00680069>
     // (uppercase). Match either lowercase-nibble or uppercase.
@@ -319,7 +334,10 @@ fn c6_add_then_remove_by_nm() {
 
     // Confirm /NM is now resolvable.
     let doc_a = Document::load_mem_with_options(&bytes_a, crate::annots::load_options()).unwrap();
-    assert!(find_nm(&doc_a, "c6").is_some(), "/NM should be present after add");
+    assert!(
+        find_nm(&doc_a, "c6").is_some(),
+        "/NM should be present after add"
+    );
 
     let rm = r#"{"ops":[
         {"type":"remove","index":1,"page_index":0,"annot_id":"c6",
@@ -531,7 +549,12 @@ fn add_writes_rect_verbatim_under_rotate_270() {
 
 #[test]
 fn skip_add_duplicate_nm_vs_prev() {
-    let seed_rect = Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 };
+    let seed_rect = Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    };
     let bytes = make_fixture_pdf(
         AnnotsShape::DirectArray,
         0,
@@ -547,7 +570,10 @@ fn skip_add_duplicate_nm_vs_prev() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 7, reason: SkipReason::AddDuplicateNm }]
+        vec![Skipped {
+            index: 7,
+            reason: SkipReason::AddDuplicateNm
+        }]
     );
     // File must be untouched (nothing to save when applied == 0).
     assert_eq!(post, bytes);
@@ -569,7 +595,10 @@ fn skip_add_duplicate_nm_within_batch() {
     assert_eq!(res.applied, 1);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 1, reason: SkipReason::AddDuplicateNm }]
+        vec![Skipped {
+            index: 1,
+            reason: SkipReason::AddDuplicateNm
+        }]
     );
 }
 
@@ -585,7 +614,10 @@ fn skip_remove_target_not_found_leaves_file_untouched() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 3, reason: SkipReason::RemoveTargetNotFound }]
+        vec![Skipped {
+            index: 3,
+            reason: SkipReason::RemoveTargetNotFound
+        }]
     );
     assert_eq!(post, bytes, "no changes → file must be untouched");
 }
@@ -603,14 +635,22 @@ fn skip_modify_target_not_found() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 4, reason: SkipReason::ModifyTargetNotFound }]
+        vec![Skipped {
+            index: 4,
+            reason: SkipReason::ModifyTargetNotFound
+        }]
     );
     assert_eq!(post, bytes);
 }
 
 #[test]
 fn remove_falls_back_to_subtype_rect_when_nm_missing() {
-    let seed_rect = Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 };
+    let seed_rect = Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    };
     let bytes = make_fixture_pdf(
         AnnotsShape::DirectArray,
         0,
@@ -633,7 +673,12 @@ fn remove_falls_back_to_subtype_rect_when_nm_missing() {
 
 #[test]
 fn modify_comment_replaces_contents() {
-    let seed_rect = Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 };
+    let seed_rect = Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    };
     let bytes = make_fixture_pdf(
         AnnotsShape::DirectArray,
         0,
@@ -673,7 +718,12 @@ fn modify_comment_replaces_contents() {
 
 #[test]
 fn modify_comment_null_removes_contents() {
-    let seed_rect = Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 };
+    let seed_rect = Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    };
     let bytes = make_fixture_pdf(
         AnnotsShape::DirectArray,
         0,
@@ -761,7 +811,12 @@ fn filtered_and_non_filtered_produce_identical_output() {
     // ObjectId allocator uses a shared counter per Document, so the newly
     // added annotation gets the same id in both paths as long as we build
     // them in the same order.
-    let rect = UserSpaceRect(Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 });
+    let rect = UserSpaceRect(Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    });
     let dict = crate::annots::text_markup_dict(
         "Highlight",
         "eq-check",
@@ -771,7 +826,9 @@ fn filtered_and_non_filtered_produce_identical_output() {
         0.5,
         None,
     );
-    let id_a = idoc_a.new_document.add_object(Object::Dictionary(dict.clone()));
+    let id_a = idoc_a
+        .new_document
+        .add_object(Object::Dictionary(dict.clone()));
     let id_b = idoc_b.new_document.add_object(Object::Dictionary(dict));
     assert_eq!(id_a, id_b);
 
@@ -814,7 +871,10 @@ fn skip_add_page_index_out_of_range() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 11, reason: SkipReason::AddPageNotFound }]
+        vec![Skipped {
+            index: 11,
+            reason: SkipReason::AddPageNotFound
+        }]
     );
     assert_eq!(post, bytes);
 }
@@ -831,7 +891,10 @@ fn skip_remove_page_index_out_of_range() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 12, reason: SkipReason::RemovePageNotFound }]
+        vec![Skipped {
+            index: 12,
+            reason: SkipReason::RemovePageNotFound
+        }]
     );
 }
 
@@ -848,7 +911,10 @@ fn skip_modify_page_index_out_of_range() {
     assert_eq!(res.applied, 0);
     assert_eq!(
         res.skipped,
-        vec![Skipped { index: 13, reason: SkipReason::ModifyPageNotFound }]
+        vec![Skipped {
+            index: 13,
+            reason: SkipReason::ModifyPageNotFound
+        }]
     );
 }
 
@@ -857,19 +923,19 @@ fn skip_modify_page_index_out_of_range() {
 // ---------------------------------------------------------------------------
 
 fn offset_mb() -> Rect {
-    Rect { llx: 9.0, lly: 9.0, urx: 621.0, ury: 801.0 }
+    Rect {
+        llx: 9.0,
+        lly: 9.0,
+        urx: 621.0,
+        ury: 801.0,
+    }
 }
 
 #[test]
 fn must3_add_writes_rect_in_mediabox_absolute_coords_rotate_0() {
     // MediaBox [9 9 621 801], rotate=0: input rect must be written verbatim
     // (identity) — no origin drift.
-    let bytes = make_fixture_pdf_with_mediabox(
-        AnnotsShape::DirectArray,
-        0,
-        offset_mb(),
-        None,
-    );
+    let bytes = make_fixture_pdf_with_mediabox(AnnotsShape::DirectArray, 0, offset_mb(), None);
     let batch = r#"{"ops":[
         {"type":"add","index":0,"page_index":0,"annot_id":"origin-ok",
          "subtype":"Highlight",
@@ -887,12 +953,7 @@ fn must3_add_writes_rect_in_mediabox_absolute_coords_rotate_0() {
 fn must3_add_writes_rect_verbatim_with_rotate_90_and_offset_mediabox() {
     // /Rotate 90 + offset MediaBox [9 9 621 801]. Input rect is
     // raw user space and must be written into `/Rect` verbatim.
-    let bytes = make_fixture_pdf_with_mediabox(
-        AnnotsShape::DirectArray,
-        90,
-        offset_mb(),
-        None,
-    );
+    let bytes = make_fixture_pdf_with_mediabox(AnnotsShape::DirectArray, 90, offset_mb(), None);
     let batch = r#"{"ops":[
         {"type":"add","index":0,"page_index":0,"annot_id":"r90-off",
          "subtype":"Highlight",
@@ -911,7 +972,12 @@ fn must3_add_writes_rect_verbatim_with_rotate_90_and_offset_mediabox() {
 fn must3_remove_fallback_matches_absolute_rect_under_rotate_90() {
     // Seed the fixture with an annotation whose /Rect is in absolute user
     // space (MediaBox [9 9 621 801], /Rotate=90) at (510, 100)-(530, 200).
-    let seed_rect = Rect { llx: 510.0, lly: 100.0, urx: 530.0, ury: 200.0 };
+    let seed_rect = Rect {
+        llx: 510.0,
+        lly: 100.0,
+        urx: 530.0,
+        ury: 200.0,
+    };
     let bytes = make_fixture_pdf_with_mediabox(
         AnnotsShape::DirectArray,
         90,
@@ -980,8 +1046,20 @@ fn add_with_quad_points_writes_them_verbatim_under_rotate_90() {
             Object::Integer(n) => *n as f64,
             _ => panic!(),
         };
-        assert!((x - want[i].0).abs() < 0.01, "quad[{}].x = {} want {}", i, x, want[i].0);
-        assert!((y - want[i].1).abs() < 0.01, "quad[{}].y = {} want {}", i, y, want[i].1);
+        assert!(
+            (x - want[i].0).abs() < 0.01,
+            "quad[{}].x = {} want {}",
+            i,
+            x,
+            want[i].0
+        );
+        assert!(
+            (y - want[i].1).abs() < 0.01,
+            "quad[{}].y = {} want {}",
+            i,
+            y,
+            want[i].1
+        );
     }
 }
 
@@ -1045,12 +1123,20 @@ fn parent_chain_cycle_does_not_hang_direct() {
     // No /MediaBox anywhere in the cycle → should return an Err in
     // finite time.
     let result = crate::annots::document_page_rotate_and_mediabox(&doc, page_id);
-    assert!(result.is_err(), "should not find /MediaBox on a cyclic parent chain");
+    assert!(
+        result.is_err(),
+        "should not find /MediaBox on a cyclic parent chain"
+    );
 }
 
 #[test]
 fn modify_comment_over_indirect_annots_array() {
-    let seed_rect = Rect { llx: 100.0, lly: 100.0, urx: 300.0, ury: 120.0 };
+    let seed_rect = Rect {
+        llx: 100.0,
+        lly: 100.0,
+        urx: 300.0,
+        ury: 120.0,
+    };
     let bytes = make_fixture_pdf(
         AnnotsShape::IndirectRef,
         0,
@@ -1145,10 +1231,8 @@ fn build_document_with_id() -> Document {
     // ciphertext across test runs.
     let id_bytes = b"shellac-test-fixture-id-01234567".to_vec();
     let id_element = Object::String(id_bytes.clone(), StringFormat::Hexadecimal);
-    doc.trailer.set(
-        "ID",
-        Object::Array(vec![id_element.clone(), id_element]),
-    );
+    doc.trailer
+        .set("ID", Object::Array(vec![id_element.clone(), id_element]));
 
     doc
 }
@@ -1339,7 +1423,10 @@ fn apply_ops_round_trips_rc4_r3_and_preserves_encryption() {
     assert_eq!(res.status, Status::Ok);
     assert_eq!(res.applied, 1);
     assert!(res.skipped.is_empty());
-    assert_ne!(post, bytes, "incremental increment must actually append bytes");
+    assert_ne!(
+        post, bytes,
+        "incremental increment must actually append bytes"
+    );
     let post_doc = Document::load_mem_with_options(&post, crate::annots::load_options())
         .expect("post-increment doc must remain parseable");
     assert!(
@@ -1502,7 +1589,10 @@ fn apply_ops_refuses_annotations_restricted_and_leaves_bytes_untouched() {
     assert_eq!(res.status, Status::AnnotationsRestricted);
     assert_eq!(res.applied, 0);
     assert!(res.skipped.is_empty());
-    assert_eq!(post, bytes, "annotations_restricted must not touch the file");
+    assert_eq!(
+        post, bytes,
+        "annotations_restricted must not touch the file"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1679,9 +1769,7 @@ fn s502_vertical_strikeout_quad_preserves_input_order() {
     let annot_id = find_nm(&doc, "v-so").unwrap();
     assert_quads_approx(
         &read_quads(&doc, annot_id),
-        &[
-            100.0, 200.0, 110.0, 200.0, 100.0, 100.0, 110.0, 100.0,
-        ],
+        &[100.0, 200.0, 110.0, 200.0, 100.0, 100.0, 110.0, 100.0],
     );
 }
 
@@ -1757,18 +1845,9 @@ fn s502_highlight_add_produces_self_generated_ap() {
     let content = content.as_slice();
 
     // Type / Subtype / FormType.
-    assert_eq!(
-        dict.get(b"Type").unwrap().as_name().unwrap(),
-        b"XObject"
-    );
-    assert_eq!(
-        dict.get(b"Subtype").unwrap().as_name().unwrap(),
-        b"Form"
-    );
-    assert_eq!(
-        dict.get(b"FormType").unwrap().as_i64().unwrap(),
-        1
-    );
+    assert_eq!(dict.get(b"Type").unwrap().as_name().unwrap(), b"XObject");
+    assert_eq!(dict.get(b"Subtype").unwrap().as_name().unwrap(), b"Form");
+    assert_eq!(dict.get(b"FormType").unwrap().as_i64().unwrap(), 1);
 
     // BBox = [0 0 W H].
     let bbox = dict.get(b"BBox").unwrap().as_array().unwrap();
@@ -1829,8 +1908,10 @@ fn s502_highlight_add_produces_self_generated_ap() {
     // The exact `rg` command should carry our r/g/b values (0.8 as 0.8 or
     // similar float rendering — accept both `0.8` and `0.800...`).
     assert!(
-        content_str.contains("1 0.8 0 rg") || content_str.contains("1.0 0.8 0.0 rg") ||
-        content_str.contains("1 0.8 0.0 rg") || content_str.contains("1.0 0.8 0 rg"),
+        content_str.contains("1 0.8 0 rg")
+            || content_str.contains("1.0 0.8 0.0 rg")
+            || content_str.contains("1 0.8 0.0 rg")
+            || content_str.contains("1.0 0.8 0 rg"),
         "content must contain the highlight colour rg: {}",
         content_str
     );
@@ -1879,10 +1960,7 @@ fn s502_underline_add_has_no_ap() {
     let doc = Document::load_mem_with_options(&post, crate::annots::load_options()).unwrap();
     let annot_id = find_nm(&doc, "no-ap-ul").unwrap();
     let dict = doc.get_object(annot_id).unwrap().as_dict().unwrap();
-    assert!(
-        dict.get(b"AP").is_err(),
-        "Underline must not carry /AP"
-    );
+    assert!(dict.get(b"AP").is_err(), "Underline must not carry /AP");
 }
 
 #[test]
@@ -1900,10 +1978,7 @@ fn s502_strikeout_add_has_no_ap() {
     let doc = Document::load_mem_with_options(&post, crate::annots::load_options()).unwrap();
     let annot_id = find_nm(&doc, "no-ap-so").unwrap();
     let dict = doc.get_object(annot_id).unwrap().as_dict().unwrap();
-    assert!(
-        dict.get(b"AP").is_err(),
-        "StrikeOut must not carry /AP"
-    );
+    assert!(dict.get(b"AP").is_err(), "StrikeOut must not carry /AP");
 }
 
 #[test]

@@ -353,7 +353,10 @@ pub fn text_markup_dict(
         ]),
     );
     d.set("CA", Object::Real(opacity));
-    d.set("NM", Object::String(id.as_bytes().to_vec(), StringFormat::Literal));
+    d.set(
+        "NM",
+        Object::String(id.as_bytes().to_vec(), StringFormat::Literal),
+    );
     d.set(
         "Contents",
         Object::String(utf16be_bom(contents), StringFormat::Hexadecimal),
@@ -471,7 +474,9 @@ fn page_and_ancestors(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
 
 fn inheritable(doc: &Document, page_id: ObjectId, key: &[u8]) -> Option<Object> {
     for id in page_and_ancestors(doc, page_id) {
-        let Ok(dict) = doc.get_dictionary(id) else { continue };
+        let Ok(dict) = doc.get_dictionary(id) else {
+            continue;
+        };
         if let Ok(obj) = dict.get(key) {
             let resolved = deref(doc, obj.clone());
             return Some(resolved);
@@ -528,9 +533,8 @@ pub fn document_page_rotate_and_mediabox(
     }
     let mut vals = [0.0_f64; 4];
     for i in 0..4 {
-        vals[i] = as_number(&arr[i]).ok_or_else(|| {
-            lopdf::Error::Syntax(format!("/MediaBox[{}] is not a number", i))
-        })?;
+        vals[i] = as_number(&arr[i])
+            .ok_or_else(|| lopdf::Error::Syntax(format!("/MediaBox[{}] is not a number", i)))?;
     }
     let (llx, lly, urx, ury) = (vals[0], vals[1], vals[2], vals[3]);
     // Normalize so llx<=urx, lly<=ury (spec allows either corner ordering).
@@ -552,7 +556,9 @@ pub fn document_page_rotate_and_mediabox(
 /// annotation ObjectIds (references only — inline dicts are skipped).
 fn read_annot_refs(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
     let mut out = Vec::new();
-    let Ok(page_dict) = doc.get_dictionary(page_id) else { return out };
+    let Ok(page_dict) = doc.get_dictionary(page_id) else {
+        return out;
+    };
     let annots_obj = match page_dict.get(b"Annots") {
         Ok(o) => o,
         Err(_) => return out,
@@ -577,8 +583,12 @@ fn read_annot_refs(doc: &Document, page_id: ObjectId) -> Vec<ObjectId> {
 /// `target_id`. Handles all three /Annots shapes.
 pub fn find_by_nm(prev: &Document, page_id: ObjectId, target_id: &str) -> Option<ObjectId> {
     for rid in read_annot_refs(prev, page_id) {
-        let Ok(dict) = prev.get_object(rid).and_then(Object::as_dict) else { continue };
-        let Ok(nm) = dict.get(b"NM").and_then(Object::as_str) else { continue };
+        let Ok(dict) = prev.get_object(rid).and_then(Object::as_dict) else {
+            continue;
+        };
+        let Ok(nm) = dict.get(b"NM").and_then(Object::as_str) else {
+            continue;
+        };
         if nm == target_id.as_bytes() {
             return Some(rid);
         }
@@ -609,13 +619,21 @@ pub fn find_by_rect_point(
     let (px, py) = (point.x, point.y);
     let mut best: Option<(ObjectId, f64)> = None;
     for rid in read_annot_refs(prev, page_id) {
-        let Ok(dict) = prev.get_object(rid).and_then(Object::as_dict) else { continue };
-        let Ok(st) = dict.get(b"Subtype").and_then(Object::as_name) else { continue };
+        let Ok(dict) = prev.get_object(rid).and_then(Object::as_dict) else {
+            continue;
+        };
+        let Ok(st) = dict.get(b"Subtype").and_then(Object::as_name) else {
+            continue;
+        };
         if st != subtype.as_bytes() {
             continue;
         }
-        let Ok(rect_obj) = dict.get(b"Rect") else { continue };
-        let Ok(arr) = rect_obj.as_array() else { continue };
+        let Ok(rect_obj) = dict.get(b"Rect") else {
+            continue;
+        };
+        let Ok(arr) = rect_obj.as_array() else {
+            continue;
+        };
         if arr.len() < 4 {
             continue;
         }
@@ -687,7 +705,10 @@ pub fn append_annot_refs(
     if let Some(annots_id) = indirect_annots {
         // Case (c): /Annots is an indirect reference to an array elsewhere.
         idoc.opt_clone_object_to_new_document(annots_id)?;
-        let arr = idoc.new_document.get_object_mut(annots_id)?.as_array_mut()?;
+        let arr = idoc
+            .new_document
+            .get_object_mut(annots_id)?
+            .as_array_mut()?;
         arr.extend(refs);
     } else if has_direct_array {
         // Case (b): /Annots is already a direct array on the page dict.
@@ -734,7 +755,10 @@ pub fn remove_annot_refs(
 
     if let Some(annots_id) = indirect_annots {
         idoc.opt_clone_object_to_new_document(annots_id)?;
-        let arr = idoc.new_document.get_object_mut(annots_id)?.as_array_mut()?;
+        let arr = idoc
+            .new_document
+            .get_object_mut(annots_id)?
+            .as_array_mut()?;
         arr.retain(|o| !matches!(o.as_reference(), Ok(id) if remove_ids.contains(&id)));
     } else {
         let page_dict = idoc.new_document.get_dictionary_mut(page_id)?;
