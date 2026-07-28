@@ -1,0 +1,32 @@
+[package]
+name = "shellac"
+version = "0.1.0"
+# Deliberately not on the workspace's 2024 edition: this crate's FFI surface
+# uses the pre-2024 `#[no_mangle]` / `unsafe extern` forms, and the port keeps
+# the sources comparable against their origin. Moving to 2024 is a separate,
+# reviewable change.
+edition = "2021"
+license.workspace = true
+publish = false
+description = "lopdf-based incremental PDF annotation save engine"
+
+[lib]
+name = "shellac"
+crate-type = ["staticlib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "shellac-cli"
+path = "src/bin/shellac_cli.rs"
+
+[dependencies]
+lopdf = "0.44.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+cbindgen = "0.27"
+
+# Note: the release profile is intentionally left at cargo defaults, both here
+# and at the workspace root. `panic = "abort"` MUST NOT be set — see the
+# rationale in the workspace `Cargo.toml`.
