@@ -80,8 +80,8 @@ for name in ${committed}; do
     # string that a later save superseded (the base file's /Producer, an
     # intermediate trailer /ID) is invisible there while still sitting in
     # the bytes that ship. So each revision is cut at its %%EOF and audited
-    # as a document in its own right, plus the whole file for any bytes
-    # after the last marker.
+    # as a document in its own right, and anything trailing the final marker
+    # is checked separately below.
     : > "${CI_TMP}/${name}-raw-strings.txt"
 
     scan_strings() { # <pdf or prefix> <json out>
@@ -125,6 +125,26 @@ for name in ${committed}; do
         scan_strings "${prefix}" "${CI_TMP}/rev.json"
         revs_scanned=$((revs_scanned + 1))
     done < "${CI_TMP}/eof.txt"
+
+    # Bytes after the final %%EOF belong to no revision, so nothing above
+    # would look at them: qpdf reports the document, and appended bytes are
+    # not part of it. Anything but trailing whitespace there is content this
+    # audit cannot account for.
+    if [ "${rev}" -gt 0 ]; then
+        tail -1 "${CI_TMP}/eof.txt" > "${CI_TMP}/last-eof.txt"
+        read -r last_offset < "${CI_TMP}/last-eof.txt"
+        last_end=$((last_offset + 5))
+        ci_size "${pdf}"
+        trailing=$((CI_SIZE - last_end))
+        if [ "${trailing}" -gt 0 ]; then
+            tail -c "${trailing}" "${pdf}" > "${CI_TMP}/tail.bin"
+            tr -d '[:space:]' < "${CI_TMP}/tail.bin" > "${CI_TMP}/tail-stripped.bin"
+            ci_size "${CI_TMP}/tail-stripped.bin"
+            ci_expect_eq "${name}: non-whitespace bytes after the final %%EOF" "0" "${CI_SIZE}"
+        else
+            ci_pass "${name}: nothing follows the final %%EOF"
+        fi
+    fi
 
     sort -u "${CI_TMP}/${name}-raw-strings.txt" > "${CI_TMP}/${name}-strings.txt"
     { grep -c '' "${CI_TMP}/${name}-strings.txt" || true; } > "${CI_TMP}/nvalues.txt"
