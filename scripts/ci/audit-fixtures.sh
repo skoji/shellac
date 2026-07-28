@@ -3,7 +3,19 @@
 #
 # The fixtures are binary blobs that ship in the repository, so what they
 # carry cannot be reviewed by reading the diff. This script asserts the
-# properties a reviewer would otherwise have to take on trust:
+# properties a reviewer would otherwise have to take on trust.
+#
+# It works in two layers, which answer different questions.
+#
+# Layer 1, identity: the committed fixtures hash to the values recorded in
+# fixture-checksums.txt. This freezes them byte for byte and subsumes every
+# structural property the content checks derive from the bytes, since none
+# of those can change while a hash stays the same.
+#
+# Layer 2, content: what a fixture actually carries. These are the checks
+# that matter when a fixture is legitimately regenerated -- the point at
+# which layer 1 has to be updated and so cannot vouch for anything. Run
+# them, read what they report, then update the manifest.
 #
 #   1. document metadata (Title / Author / Creator) is empty
 #   2. every string the document carries, in every revision it ships, is on
@@ -15,6 +27,12 @@
 #      nothing but whitespace follows the last one
 #   4. no local filesystem paths are embedded anywhere in the bytes
 #   5. XMP metadata carries no identity properties
+#
+# What this is for: keeping personal information out of the corpus by
+# accident -- an account name a tool wrote into a file, a local path baked
+# into a generated sample. It is not a defence against someone who can edit
+# this script, since anything here can be edited away; that is outside what
+# CI can decide.
 #
 # Check 2 reads `qpdf --json` and covers every string in the document's
 # object structure, whatever key or object it sits under. That is what makes
@@ -52,6 +70,30 @@ allowlist="${script_dir}/fixture-string-allowlist.txt"
 ci_require_file "${allowlist}"
 revisions="${script_dir}/fixture-revisions.txt"
 ci_require_file "${revisions}"
+checksums="${script_dir}/fixture-checksums.txt"
+ci_require_file "${checksums}"
+
+# --- Layer 1: the committed fixtures are the ones that were reviewed ------
+# GNU coreutils ships sha256sum; macOS ships shasum. Comments are stripped
+# first because the two disagree about non-checksum lines.
+checksum_tool=""
+if command -v sha256sum > /dev/null 2>&1; then
+    checksum_tool="sha256sum"
+elif command -v shasum > /dev/null 2>&1; then
+    checksum_tool="shasum -a 256"
+else
+    printf 'audit-fixtures: no sha256sum or shasum on PATH\n' >&2
+    exit 1
+fi
+
+{ grep -v -E '^[[:space:]]*(#|$)' "${checksums}" || true; } > "${CI_TMP}/checksums.txt"
+if ( cd "${repo_root}" && ${checksum_tool} --check "${CI_TMP}/checksums.txt" ) \
+    > "${CI_TMP}/checksum.log" 2>&1; then
+    ci_pass "committed fixtures match fixture-checksums.txt"
+else
+    ci_fail "committed fixtures do not match fixture-checksums.txt; a fixture changed, or the manifest was not updated after a deliberate regeneration"
+    cat "${CI_TMP}/checksum.log" >&2
+fi
 
 # The committed fixtures, named explicitly so a stray locally-generated
 # sample in the same directory neither joins nor masks the audit.
