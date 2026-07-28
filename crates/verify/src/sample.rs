@@ -4,21 +4,21 @@
 
 use std::path::Path;
 
-use crate::anchor::{find_text_anchor, TextAnchor};
+use crate::anchor::{TextAnchor, find_text_anchor};
 use crate::checks::bbox::{PosCheck, PosDerive};
 use crate::checks::enc_qpdf::qpdf_check_ok;
 use crate::checks::pdfkit::pdfkit_check;
 use crate::checks::producer::producer_info;
 use crate::checks::qpdf::QuadCheck;
 use crate::consts::{C8_MAX_DELTA, SKIP_REFUSED};
-use crate::encrypted::{classify_encrypted, extract_status, EncMode};
+use crate::encrypted::{EncMode, classify_encrypted, extract_status};
 use crate::engine::SaveEngine;
 use crate::geom::{
-    derive_highlight_rect, derive_loop_rect, derive_multiline_quads, derive_underline_rect,
-    legacy_highlight_rect, legacy_loop_rect, legacy_underline_rect, Rect,
+    Rect, derive_highlight_rect, derive_loop_rect, derive_multiline_quads, derive_underline_rect,
+    legacy_highlight_rect, legacy_loop_rect, legacy_underline_rect,
 };
 use crate::ids::NmIds;
-use crate::scenario::{run_scenario, Bins, Scenario};
+use crate::scenario::{Bins, Scenario, run_scenario};
 use crate::state::load_state;
 use crate::util::{count_eof, dedup};
 
@@ -435,10 +435,7 @@ pub fn run_sample(
             // A scenario-level fatal (state load failure) keeps prev as
             // the reference state: delta 0, iteration recorded as failing.
             let (cur_len, delta) = match &cur {
-                Some(c) => (
-                    c.data.len(),
-                    c.data.len() as i64 - prev.data.len() as i64,
-                ),
+                Some(c) => (c.data.len(), c.data.len() as i64 - prev.data.len() as i64),
                 None => (prev.data.len(), 0),
             };
             res.loop_sizes.push(cur_len);
@@ -467,7 +464,9 @@ pub fn run_sample(
     res.c8_pass = c8;
     if c8_notes.is_empty() {
         let max_d = res.loop_deltas.iter().copied().max().unwrap_or(0);
-        c8_notes.push(format!("10/10 iterations pass, max increment {max_d} bytes"));
+        c8_notes.push(format!(
+            "10/10 iterations pass, max increment {max_d} bytes"
+        ));
     }
     res.c8_detail = c8_notes.join("; ");
 
@@ -523,10 +522,7 @@ mod tests {
     }
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
-        let d = std::env::temp_dir().join(format!(
-            "verify-test-{tag}-{}",
-            std::process::id()
-        ));
+        let d = std::env::temp_dir().join(format!("verify-test-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d

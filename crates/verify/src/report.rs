@@ -9,11 +9,7 @@ use crate::scenario::Scenario;
 use crate::util::{bracket_list, trunc};
 
 pub fn mark(pass: bool) -> &'static str {
-    if pass {
-        "pass"
-    } else {
-        "**FAIL**"
-    }
+    if pass { "pass" } else { "**FAIL**" }
 }
 
 /// Produces the Encrypted-column cell for a sample. This column reflects
@@ -150,12 +146,13 @@ fn scenario_section(out: &mut String, sc: &Scenario, san: &Sanitizer) {
         out.push_str(&format!("- C10 /AP: {}\n", parts.join(", ")));
     }
     if let Some(sel) = &sc.c11a_selection
-        && sel.candidates >= 2 {
-            out.push_str(&format!(
+        && sel.candidates >= 2
+    {
+        out.push_str(&format!(
                 "- C11a needle selection: {} candidates on page 1; selected {} (center distance {:.2}pt from PDFKit anchor bounds)\n",
                 sel.candidates, sel.chosen, sel.center_distance
             ));
-        }
+    }
     out.push('\n');
 }
 
@@ -215,7 +212,10 @@ pub fn build_report(
     sb.push_str("|---|---|---|---|---|---|---|---|---|---|---|---|\n");
     for r in results {
         if !r.fatal_err.is_empty() {
-            let mut row = vec![r.name.clone(), format!("**FATAL**: {}", one_line(&r.fatal_err, san))];
+            let mut row = vec![
+                r.name.clone(),
+                format!("**FATAL**: {}", one_line(&r.fatal_err, san)),
+            ];
             row.extend(std::iter::repeat_n(String::new(), 10));
             sb.push_str(&format!("| {} |\n", row.join(" | ")));
             continue;
@@ -300,7 +300,10 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
                 "- size: {} bytes / %%EOF: {}\n",
                 r.base_size, r.base_eof
             ));
-            sb.push_str(&format!("- refused: {}\n\n", san.apply(&r.enc_refused_note)));
+            sb.push_str(&format!(
+                "- refused: {}\n\n",
+                san.apply(&r.enc_refused_note)
+            ));
             if !r.enc_add_fatal_msg.is_empty() {
                 sb.push_str("### Raw log (engine add stderr)\n\n```\n");
                 sb.push_str(&trunc(&san.apply(&r.enc_add_fatal_msg), 1500));
@@ -340,7 +343,11 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
         scenario_section(&mut sb, &r.removed, san);
 
         sb.push_str("### loop (10 incremental saves)\n\n");
-        sb.push_str(&format!("C8: {} — {}\n\n", mark(r.c8_pass), san.apply(&r.c8_detail)));
+        sb.push_str(&format!(
+            "C8: {} — {}\n\n",
+            mark(r.c8_pass),
+            san.apply(&r.c8_detail)
+        ));
         sb.push_str(
             "| iter | size (bytes) | delta (bytes) | checks | objects in increment (recorded, not asserted) |\n|---|---|---|---|---|\n",
         );
@@ -551,7 +558,8 @@ mod tests {
     #[test]
     fn aggregate_ignores_skipped_scenarios() {
         let mut r = base_sample();
-        r.add_multiline = Scenario::fatal("add-multiline", "skipped: no text anchor for this sample");
+        r.add_multiline =
+            Scenario::fatal("add-multiline", "skipped: no text anchor for this sample");
         r.add_multiline_skipped = true;
         assert_eq!(aggregate_check(&r, "C1"), "pass");
     }
@@ -567,7 +575,12 @@ mod tests {
         let mut r = base_sample();
         r.name = "S9-x".to_string();
         r.enc_mode = EncMode::RoundtripPass;
-        for sc in [&mut r.add, &mut r.modified, &mut r.add_multiline, &mut r.removed] {
+        for sc in [
+            &mut r.add,
+            &mut r.modified,
+            &mut r.add_multiline,
+            &mut r.removed,
+        ] {
             sc.add("C-enc-qpdf", true, "qpdf --check: clean");
         }
         for i in 0..10 {
@@ -625,7 +638,8 @@ mod tests {
     #[test]
     fn encrypted_column_roundtrip_allows_skipped_slots() {
         let mut r = roundtrip_sample();
-        r.add_multiline = Scenario::fatal("add-multiline", "skipped: no text anchor for this sample");
+        r.add_multiline =
+            Scenario::fatal("add-multiline", "skipped: no text anchor for this sample");
         r.add_multiline_skipped = true;
         assert_eq!(encrypted_column(&r), "roundtrip-pass");
     }
@@ -659,10 +673,17 @@ mod tests {
             r.loop_sizes.push(1234 + (i + 1) * 10);
             r.loop_deltas.push(10);
         }
-        let md = build_report(&[r], "- qpdf version x\n- save engine: cli: engine\n", "2026-01-01T00:00:00Z", &Sanitizer::new());
+        let md = build_report(
+            &[r],
+            "- qpdf version x\n- save engine: cli: engine\n",
+            "2026-01-01T00:00:00Z",
+            &Sanitizer::new(),
+        );
         assert!(md.contains("# Incremental-save verification matrix"));
         assert!(md.contains("| S1 | pass |"));
-        assert!(md.contains("| Sample | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C11a | C11b | Encrypted |"));
+        assert!(md.contains(
+            "| Sample | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C11a | C11b | Encrypted |"
+        ));
         assert!(md.contains("## Text anchors"));
         assert!(md.contains("### loop (10 incremental saves)"));
         assert!(md.contains("objects in increment (recorded, not asserted)"));
@@ -679,7 +700,8 @@ mod tests {
         r.enc_want_status = "encrypted_refused".to_string();
         r.enc_got_status = "encrypted_refused".to_string();
         r.enc_bytes_equal = true;
-        r.enc_refused_note = "status=encrypted_refused (want encrypted_refused), bytes=unchanged".to_string();
+        r.enc_refused_note =
+            "status=encrypted_refused (want encrypted_refused), bytes=unchanged".to_string();
         r.enc_add_fatal_msg = "engine: refused".to_string();
         let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains("| S11-password-required | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | refused-unchanged |"));

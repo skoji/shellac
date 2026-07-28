@@ -147,15 +147,17 @@ echo "generate_s3: rendering ${pages} page images"
 echo "generate_s3: img2pdf -> ${build_dir}/no-text-layer.pdf"
 img2pdf --output "${build_dir}/no-text-layer.pdf" "${build_dir}"/pages/page-*.png
 
-# --pages 2-end is the whole point: page 1 gets copied through untouched and
+# Skipping page 1 is the whole point: it gets copied through untouched and
 # ends up with no text layer, which is the C11 skip path this sample exists for.
+# The range is written out in full rather than as "2-end", which ocrmypdf only
+# learned to accept after 15.2.0; the page count is known here anyway.
 # --output-type pdf keeps ocrmypdf from running the PDF/A (Ghostscript) rewrite,
 # so the output stays a plain image+text-layer PDF like a scanner would emit.
 # --optimize 0 keeps the embedded images byte-identical to what img2pdf wrote.
-echo "generate_s3: ocrmypdf -l jpn --pages 2-end -> ${dst}"
+echo "generate_s3: ocrmypdf -l jpn --pages 2-${pages} -> ${dst}"
 ocrmypdf \
     --language jpn \
-    --pages 2-end \
+    --pages "2-${pages}" \
     --output-type pdf \
     --optimize 0 \
     --quiet \

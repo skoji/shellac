@@ -6,9 +6,9 @@
 use std::collections::BTreeMap;
 
 use verify::anchor::TextAnchor;
-use verify::checks::bbox::{evaluate_c11a, parse_page_dims, parse_words, PosCheck, PosDerive};
-use verify::checks::pdfkit::{evaluate_c11b, evaluate_c7, PdfkitCheck};
-use verify::checks::qpdf::{evaluate_c6, evaluate_c6_quads, NmInfo, QpdfDoc, QuadCheck};
+use verify::checks::bbox::{PosCheck, PosDerive, evaluate_c11a, parse_page_dims, parse_words};
+use verify::checks::pdfkit::{PdfkitCheck, evaluate_c7, evaluate_c11b};
+use verify::checks::qpdf::{NmInfo, QpdfDoc, QuadCheck, evaluate_c6, evaluate_c6_quads};
 use verify::geom::Rect;
 
 fn fixture(name: &str) -> String {
@@ -96,7 +96,10 @@ fn qpdf_classic_xref_document_parses_like_stream_xref() {
 fn qpdf_encrypted_document_parses_and_attaches() {
     let doc = QpdfDoc::parse(fixture("qpdf-s9-add.json").as_bytes()).unwrap();
     let nm = doc.find_nm(&ids(&[HL, UL]));
-    assert!(nm[HL].found && nm[HL].page_attached, "encrypted add must be visible");
+    assert!(
+        nm[HL].found && nm[HL].page_attached,
+        "encrypted add must be visible"
+    );
     assert!(nm[UL].found && nm[UL].page_attached);
 }
 
@@ -226,7 +229,8 @@ fn c11a_real_s1_data_selects_nearest_candidate() {
         "must select the vertical-column candidate, got {}",
         sel.chosen
     );
-    assert!(out
-        .detail
-        .contains("needle matched 2 times on page 1, selected nearest to PDFKit anchor bounds"));
+    assert!(
+        out.detail
+            .contains("needle matched 2 times on page 1, selected nearest to PDFKit anchor bounds")
+    );
 }

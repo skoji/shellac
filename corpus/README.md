@@ -133,3 +133,8 @@ generator:
   ```
 
 `qpdf --check` reports no syntax or stream-encoding errors on S4.
+
+All of the above is asserted by `scripts/ci/check-fixture-invariants.sh`,
+which runs on every push; `scripts/ci/audit-fixtures.sh` additionally checks
+that no committed fixture carries document metadata, an annotation author,
+or a local filesystem path beyond a published allowlist.

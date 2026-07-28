@@ -135,7 +135,10 @@ mod tests {
 
     #[test]
     fn dedup_preserves_first_occurrence_order() {
-        let v: Vec<String> = ["b", "a", "b", "c", "a"].iter().map(|s| s.to_string()).collect();
+        let v: Vec<String> = ["b", "a", "b", "c", "a"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(dedup(&v), vec!["b", "a", "c"]);
     }
 

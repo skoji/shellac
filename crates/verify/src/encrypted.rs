@@ -60,8 +60,14 @@ mod tests {
 
     #[test]
     fn classify_requires_hyphenated_prefix() {
-        assert_eq!(classify_encrypted("S9-rc4-empty-user").0, EncMode::RoundtripPass);
-        assert_eq!(classify_encrypted("S10-aes256-empty-user").0, EncMode::RoundtripPass);
+        assert_eq!(
+            classify_encrypted("S9-rc4-empty-user").0,
+            EncMode::RoundtripPass
+        );
+        assert_eq!(
+            classify_encrypted("S10-aes256-empty-user").0,
+            EncMode::RoundtripPass
+        );
         assert_eq!(
             classify_encrypted("S11-password-required"),
             (EncMode::RefusedUnchanged, "encrypted_refused")

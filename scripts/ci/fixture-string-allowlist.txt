@@ -1,0 +1,73 @@
+# Every string carried by the committed fixtures.
+#
+# audit-fixtures.sh asserts that each string in each fixture appears here,
+# rather than scanning for particular strings that must be absent: fixtures
+# must not carry author-identifying content, and only an allowlist can state
+# that as a property of the file instead of as a list of things someone
+# thought to look for. Because the check covers every string rather than a
+# chosen set of keys, there is no encoding or dictionary position a value
+# can occupy to avoid being listed here.
+#
+# Entries are values as reported by `qpdf --json`, which has already decoded
+# the PDF-level encoding, keeping qpdf's type prefix:
+#
+#   u:  text. Written as plain text -- no backslash escapes, and a
+#       parenthesis is just a parenthesis.
+#   b:  bytes qpdf could not represent as text, hex-encoded. In this corpus
+#       these are all trailer /ID values.
+#
+# Scope: strings in the document's object structure. Stream payloads are not
+# strings and are covered by the other checks in audit-fixtures.sh (embedded
+# filesystem paths, XMP identity properties); page text is deliberately out
+# of scope, since the corpus exists to carry real book text.
+#
+# The fixtures are committed and frozen, so these values are fixed. Any
+# regeneration changes the dates and /ID values (and, on a different
+# toolchain, /Producer) and is expected to fail this audit until the new
+# values are reviewed and added.
+#
+# Blank lines and lines starting with # are ignored.
+
+# --- Annotation author (/T), used by every annotation this corpus seeds.
+u:shellac-corpus
+
+# --- Annotation bodies (/Contents) of the S4 seed annotations.
+u:shellac S4 seed highlight
+u:shellac S4 seed note
+u:shellac S4 seed underline
+
+# --- Producers of the tools that wrote the fixtures.
+u:Adobe Acrobat 26 Paper Capture Plug-in
+u:macOS Version 26.5.2 (Build 25F84) Quartz PDFContext
+u:macOS Version 26.5.2 (Build 25F84) Quartz PDFContext, AppendMode 1.1
+
+# --- Annotation default appearance (/DA). The doubled slash in the first
+# entry is what PDFKit wrote; it is not a typo here.
+u://Helvetica 12 Tf 0 g
+u:/Helvetica 12 Tf 0 g
+
+# --- CIDSystemInfo /Registry and /Ordering of the embedded CID fonts.
+u:Adobe
+u:Identity
+
+# --- Creation, modification and annotation dates.
+u:D:20260101000000Z00'00'
+u:D:20260726223345Z00'00'
+u:D:20260727035758Z00'00'
+u:D:20260727072400+09'00'
+u:D:20260727072442+09'00'
+u:D:20260727072829+09'00'
+
+# --- Trailer /ID values (two per fixture; S4 shares S2's first element
+# because it is an incremental save on top of S2). One of these belongs to
+# an intermediate revision of S4 and is superseded in the current one, so it
+# is only visible when each revision is audited separately.
+b:1b5845b9a3da9bcd718618406bd4a237
+b:3c21700b366c3cf85666613cc41b80ad
+b:86f7866cf1a144619d9ae2765bde33b5
+b:986a9757d5e84646abf25fde9431e3e6
+b:bec9ce00199fd4bd3cf1b21838d7ea1e
+b:c98639b55c53236c4226ef1673cc79ff
+b:d03e0538a8a48410a7c0fd90df463f19
+b:ecfc534176a145e8aec04061783d0e5e
+b:edebd485ff0e2a38516b113e1626d55a

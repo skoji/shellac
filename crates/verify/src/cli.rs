@@ -17,7 +17,8 @@ pub enum Command {
     Matrix(MatrixOpts),
 }
 
-pub const USAGE: &str = "usage: verify matrix --samples <dir> --work <dir> --scripts <dir> --bin <dir> \
+pub const USAGE: &str =
+    "usage: verify matrix --samples <dir> --work <dir> --scripts <dir> --bin <dir> \
 --out <path> --engine-cmd <path> --nm-prefix <str> [--redact-nm-prefix]
   --samples          directory containing sample PDFs (*.pdf)
   --work             working directory (PDF copies land here)
@@ -165,9 +166,11 @@ mod tests {
         let mut a = full_args();
         a.push("--bogus".to_string());
         assert!(parse(&a).unwrap_err().contains("unknown flag"));
-        assert!(parse(&argv(&["frobnicate"]))
-            .unwrap_err()
-            .contains("unknown subcommand"));
+        assert!(
+            parse(&argv(&["frobnicate"]))
+                .unwrap_err()
+                .contains("unknown subcommand")
+        );
         assert!(parse(&[]).unwrap_err().contains("usage:"));
     }
 

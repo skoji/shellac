@@ -1,0 +1,18 @@
+# SHA-256 of every committed fixture, in `sha256sum` / `shasum -a 256`
+# format. Paths are relative to the repository root.
+#
+# This freezes the fixtures byte for byte. It is the first thing
+# audit-fixtures.sh checks, and it subsumes every structural property the
+# other checks derive from the bytes -- marker counts, marker positions,
+# revision boundaries, trailing bytes -- because none of them can change
+# without changing a hash.
+#
+# Updating a fixture is therefore a deliberate act: regenerate it, run the
+# content checks (which is what they are for), review what they report, and
+# only then update the line here.
+
+3b67da97b730f45fb48861052c741e1f239e60eff4eccf814fee9d42c4b40790  corpus/fixtures/S1.pdf
+9f36e7ae5b31e601d407ec0491a5555efbd452e80adbbd70375b86be0920cab8  corpus/fixtures/S2.pdf
+dc9c4022103d4c28d1833842daae48d9e31aa50a54e38d605d5121f102c4a10e  corpus/fixtures/S4.pdf
+751ca1ae5aa6800fd6d49a0967d0a54a32f5dbfa3330228555afc014a9c7275f  corpus/fixtures/S5.pdf
+0a5a6f83cf589720c977ceac26660bc013df810fb415f2bf432d192c68526a85  corpus/fixtures/S7.pdf

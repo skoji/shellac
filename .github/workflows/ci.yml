@@ -1,0 +1,88 @@
+name: CI
+
+# Phase A: the checks that need no save operation.
+#
+# The harness verifies a save engine by driving it over the corpus, so the
+# full matrix needs a save CLI to run against. Everything that does not --
+# the Rust harness itself, the corpus generators, and the properties of the
+# committed fixtures -- is checked here on every push. A full-matrix
+# workflow will follow once a public save CLI exists.
+#
+# The assertions live in scripts/ci/ rather than in this file so that a
+# failure can be reproduced locally by running the same script.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: harness, generators, fixture audit (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-cargo-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: linux-cargo-
+
+      # The toolchain comes from rust-toolchain.toml, which rustup reads on
+      # the first cargo invocation, so these steps run the same compiler,
+      # rustfmt and clippy as a local build.
+      #
+      # The verify crate's own tests need no external tools: they run over
+      # captured tool output committed under crates/verify/tests/fixtures.
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test
+
+      - name: Install corpus tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qpdf poppler-utils img2pdf ocrmypdf tesseract-ocr-jpn fonts-noto-cjk
+
+      # Regenerates S3 and S8..S12 and asserts what each one exists to
+      # exercise. S3 is built from page images and OCR, so this is the slow
+      # step of the job.
+      - name: Generators produce the documented structures
+        run: bash scripts/ci/check-generated-samples.sh
+
+      # The committed fixtures are binary blobs: what they carry cannot be
+      # reviewed by reading a diff, so it is asserted instead.
+      - name: Committed fixtures carry no identifying content
+        run: bash scripts/ci/audit-fixtures.sh
+
+  macos:
+    name: PDFKit helpers and fixture invariants (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the PDFKit helpers
+        run: bash scripts/ci/build-swift-helpers.sh
+
+      # The invariant checks below are qpdf assertions; the runner image
+      # does not guarantee it. Installing when already present is a no-op.
+      - name: Install qpdf
+        run: brew install qpdf
+
+      # S4's provenance cannot be re-derived here (its generator is not part
+      # of this repository), so its defining properties are verified with
+      # qpdf instead. See corpus/README.md.
+      - name: Fixture structural invariants
+        run: bash scripts/ci/check-fixture-invariants.sh
