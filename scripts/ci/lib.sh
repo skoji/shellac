@@ -28,6 +28,12 @@ ci_cleanup() {
 # substitution to read its stdout).
 ci_init() {
     CI_LABEL="$1"
+    # PDFs are byte streams that are not valid text in any encoding. In a
+    # UTF-8 locale, grep and sed interpret them as characters and can skip
+    # or mis-split a line containing an invalid sequence, which differs
+    # between the GNU and BSD tools. The C locale makes every match
+    # byte-oriented and identical on both.
+    export LC_ALL=C
     CI_TMP="${TMPDIR:-/tmp}/shellac-ci-${CI_LABEL}.$$"
     mkdir "${CI_TMP}"
     trap ci_cleanup EXIT
