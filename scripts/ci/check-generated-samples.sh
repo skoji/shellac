@@ -95,6 +95,10 @@ expect_encryption() {
     ci_expect_contains "$1: overall method" "$2" "\"method\":\"$6\""
     ci_expect_contains "$1: stream method" "$2" "\"streammethod\":\"$6\""
     ci_expect_contains "$1: string method" "$2" "\"stringmethod\":\"$6\""
+    # Which password matched: --requires-password reports that the supplied
+    # credentials opened the file, not which of the two they matched, so the
+    # empty *user* password is asserted here.
+    ci_expect_contains "$1: empty user password matches" "$2" '"userpasswordmatched":true'
 }
 
 # --- S3 -------------------------------------------------------------------
@@ -127,10 +131,12 @@ qpdf --json "${s8}" > "${CI_TMP}/s8-raw.json"
 tr -d ' \t\n' < "${CI_TMP}/s8-raw.json" > "${CI_TMP}/s8.json"
 # Count every /Rotate entry whatever its value, then require them all to be
 # 90: enumerating the values that would be wrong would miss the ones nobody
-# listed (-90, 45, ...).
-ci_count "${CI_TMP}/s8.json" '"/Rotate":-?[0-9]+'
+# listed (-90, 45, ...). Whitespace is already stripped, so a JSON number
+# ends at the following comma or closing brace; matching that terminator is
+# what keeps 90 from also accepting 900 or 90.5.
+ci_count "${CI_TMP}/s8.json" '"/Rotate":-?[0-9.]+'
 s8_rotate_total="${CI_COUNT}"
-ci_count "${CI_TMP}/s8.json" '"/Rotate":90'
+ci_count "${CI_TMP}/s8.json" '"/Rotate":90[,}]'
 s8_rotate_90="${CI_COUNT}"
 if [ "${s8_rotate_total}" -ge 1 ]; then
     ci_pass "S8: /Rotate entries present (${s8_rotate_total})"

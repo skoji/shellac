@@ -6,10 +6,11 @@
 # properties a reviewer would otherwise have to take on trust:
 #
 #   1. document metadata (Title / Author / Creator) is empty
-#   2. every string the document carries is on a published allowlist --
-#      fixtures must not carry author-identifying strings, and asserting
-#      against an allowlist states that as a property of the file rather
-#      than as a list of specific names someone thought to look for
+#   2. every string the document carries, in every revision it ships, is on
+#      a published allowlist -- fixtures must not carry author-identifying
+#      strings, and asserting against an allowlist states that as a property
+#      of the file rather than as a list of specific names someone thought
+#      to look for
 #   3. no local filesystem paths are embedded anywhere in the bytes
 #   4. XMP metadata carries no identity properties
 #
@@ -71,15 +72,61 @@ for name in ${committed}; do
     ci_count "${CI_TMP}/info.txt" '^(Title|Author|Creator):[[:space:]]*[^[:space:]]'
     ci_expect_eq "${name}: non-empty Title/Author/Creator entries" "0" "${CI_COUNT}"
 
-    # (2) Every string the document carries must be allowlisted.
-    doc_json="${CI_TMP}/${name}.json"
-    if ! ci_json "${pdf}" "${doc_json}"; then
+    # (2) Every string the document carries must be allowlisted -- in every
+    # revision it ships, not only the current one.
+    #
+    # An incrementally saved PDF keeps its earlier revisions in its leading
+    # bytes, and qpdf --json reports the document as currently resolved: a
+    # string that a later save superseded (the base file's /Producer, an
+    # intermediate trailer /ID) is invisible there while still sitting in
+    # the bytes that ship. So each revision is cut at its %%EOF and audited
+    # as a document in its own right, plus the whole file for any bytes
+    # after the last marker.
+    : > "${CI_TMP}/${name}-raw-strings.txt"
+
+    scan_strings() { # <pdf or prefix> <json out>
+        { grep -a -o -E -- "${string_re}" "$2" || true; } \
+            | sed -E 's/^"//; s/"$//' >> "${CI_TMP}/${name}-raw-strings.txt"
+    }
+
+    if ! ci_json "${pdf}" "${CI_TMP}/${name}.json"; then
         continue
     fi
+    scan_strings "${pdf}" "${CI_TMP}/${name}.json"
 
-    { grep -a -o -E -- "${string_re}" "${doc_json}" || true; } \
-        | sed -E 's/^"//; s/"$//' \
-        | sort -u > "${CI_TMP}/${name}-strings.txt"
+    { grep -a -b -o '%%EOF' "${pdf}" || true; } | cut -d: -f1 > "${CI_TMP}/eof.txt"
+    rev=0
+    revs_scanned=0
+    while read -r offset; do
+        rev=$((rev + 1))
+        # The revision ends with its end-of-file marker, five bytes long.
+        end=$((offset + 5))
+        prefix="${CI_TMP}/${name}-rev${rev}.pdf"
+        head -c "${end}" "${pdf}" > "${prefix}"
+        rc=0
+        if qpdf --json "${prefix}" > "${CI_TMP}/rev.json" 2> "${CI_TMP}/rev.err"; then
+            rc=0
+        else
+            rc=$?
+        fi
+        if [ "${rc}" -ne 0 ] && [ "${rc}" -ne 3 ]; then
+            # A prefix qpdf cannot open is not a revision: an incremental
+            # save always leaves a complete, openable document behind. The
+            # one such boundary in this corpus is the first %%EOF of a
+            # linearized file, which ends the first-page cross-reference
+            # section rather than a saved revision.
+            if [ "${rev}" -eq 1 ] && grep -q -a '/Linearized' "${pdf}"; then
+                ci_info "${name}: boundary 1 is a linearization artifact, not a revision"
+                continue
+            fi
+            ci_fail "${name}: revision ${rev} (${end} bytes) could not be opened by qpdf (exit ${rc}), so its strings cannot be audited"
+            continue
+        fi
+        scan_strings "${prefix}" "${CI_TMP}/rev.json"
+        revs_scanned=$((revs_scanned + 1))
+    done < "${CI_TMP}/eof.txt"
+
+    sort -u "${CI_TMP}/${name}-raw-strings.txt" > "${CI_TMP}/${name}-strings.txt"
     { grep -c '' "${CI_TMP}/${name}-strings.txt" || true; } > "${CI_TMP}/nvalues.txt"
     read -r n_strings < "${CI_TMP}/nvalues.txt"
 
@@ -89,7 +136,10 @@ for name in ${committed}; do
     if [ "${n_strings}" -eq 0 ]; then
         ci_fail "${name}: no strings were extracted from qpdf --json; the scan is not working"
     fi
-    ci_info "${name}: ${n_strings} distinct string(s) to check"
+    if [ "${revs_scanned}" -eq 0 ]; then
+        ci_fail "${name}: no revision could be audited"
+    fi
+    ci_info "${name}: ${revs_scanned} revision(s), ${n_strings} distinct string(s) to check"
 
     failures_before="${ci_failures}"
     while IFS= read -r value; do

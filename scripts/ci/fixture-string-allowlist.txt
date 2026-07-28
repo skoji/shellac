@@ -59,7 +59,9 @@ u:D:20260727072442+09'00'
 u:D:20260727072829+09'00'
 
 # --- Trailer /ID values (two per fixture; S4 shares S2's first element
-# because it is an incremental save on top of S2).
+# because it is an incremental save on top of S2). One of these belongs to
+# an intermediate revision of S4 and is superseded in the current one, so it
+# is only visible when each revision is audited separately.
 b:1b5845b9a3da9bcd718618406bd4a237
 b:3c21700b366c3cf85666613cc41b80ad
 b:86f7866cf1a144619d9ae2765bde33b5
@@ -68,3 +70,4 @@ b:bec9ce00199fd4bd3cf1b21838d7ea1e
 b:c98639b55c53236c4226ef1673cc79ff
 b:d03e0538a8a48410a7c0fd90df463f19
 b:ecfc534176a145e8aec04061783d0e5e
+b:edebd485ff0e2a38516b113e1626d55a
