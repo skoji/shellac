@@ -6,11 +6,27 @@
 # properties a reviewer would otherwise have to take on trust:
 #
 #   1. document metadata (Title / Author / Creator) is empty
-#   2. every string under an identity-bearing key is on a published
-#      allowlist -- fixtures must not carry author-identifying strings, and
-#      asserting against an allowlist states that as a property of the file
-#      rather than as a list of specific names someone thought to look for
+#   2. every string the document carries is on a published allowlist --
+#      fixtures must not carry author-identifying strings, and asserting
+#      against an allowlist states that as a property of the file rather
+#      than as a list of specific names someone thought to look for
 #   3. no local filesystem paths are embedded anywhere in the bytes
+#   4. XMP metadata carries no identity properties
+#
+# Check 2 reads `qpdf --json` and covers every string in the document's
+# object structure, whatever key or object it sits under. That is what makes
+# it complete: qpdf has already parsed the file, so a value arrives as one
+# JSON value however it was written -- hex string, escaped, split across
+# lines, or reached through an indirect reference -- and there is no key
+# list to omit something from. In that JSON a string is exactly a value
+# prefixed `u:` (text) or `b:` (bytes); names, numbers and references such
+# as "5 0 R" carry no prefix and are not strings.
+#
+# Stream payloads are absent from that JSON, so binary image data can
+# neither hide a string nor forge a key. Page text lives in streams and is
+# deliberately not audited -- the corpus exists to carry real book text --
+# but the two byte-level checks below still cover streams for the things
+# that must not appear anywhere.
 #
 # Runs on any platform with qpdf and poppler. Generated samples (S3, S8..S12)
 # are not audited here: they are not committed, and their generators derive
@@ -36,10 +52,9 @@ ci_require_file "${allowlist}"
 # sample in the same directory neither joins nor masks the audit.
 committed="S1 S2 S4 S5 S7"
 
-# Keys whose string values identify a person or a tool. Dates (/M, /ModDate,
-# /CreationDate), font CID system info (/Registry, /Ordering) and appearance
-# strings (/DA) are deliberately out of scope: they cannot carry a name.
-id_keys='(T|Contents|Author|Title|Creator|Producer|Subject|Keywords)'
+# A PDF string in qpdf's JSON: the `u:`/`b:` prefix, then the value with
+# JSON escapes.
+string_re='"(u|b):(\\.|[^"\\])*"'
 
 # Strip comments and blank lines once, so the per-value lookup is a plain
 # fixed-string line match.
@@ -56,47 +71,28 @@ for name in ${committed}; do
     ci_count "${CI_TMP}/info.txt" '^(Title|Author|Creator):[[:space:]]*[^[:space:]]'
     ci_expect_eq "${name}: non-empty Title/Author/Creator entries" "0" "${CI_COUNT}"
 
-    # (2) Allowlisted strings only. The audit runs over the QDF expansion so
-    # that strings inside compressed object streams are visible as text.
-    expanded="${CI_TMP}/${name}-qdf.pdf"
-    if ! ci_qdf "${pdf}" "${expanded}"; then
+    # (2) Every string the document carries must be allowlisted.
+    doc_json="${CI_TMP}/${name}.json"
+    if ! ci_json "${pdf}" "${doc_json}"; then
         continue
     fi
 
-    # Literal strings: `\(` and `\)` are escapes inside the value, so the
-    # value pattern accepts any escaped character or any non-escape,
-    # non-closing character.
-    value_re="/${id_keys} *\\((\\\\.|[^\\\\)])*\\)"
-
-    # Completeness guards for the extraction below. A hex string, or a
-    # literal string broken across lines, would not match the value pattern
-    # and would otherwise pass unseen; requiring every use of an identity
-    # key to yield exactly one readable value turns any such encoding into a
-    # failure a human has to look at.
-    ci_count "${expanded}" "/${id_keys} *<[^<]"
-    hex_values="${CI_COUNT}"
-    ci_expect_eq "${name}: hex-encoded values under identity keys" "0" "${hex_values}"
-
-    ci_count "${expanded}" "/${id_keys} *[(<]"
-    key_uses="${CI_COUNT}"
-    ci_count "${expanded}" "${value_re}"
-    ci_expect_eq "${name}: readable values per identity-key use" "${key_uses}" "${CI_COUNT}"
-
-    { grep -a -o -E -- "${value_re}" "${expanded}" || true; } \
+    { grep -a -o -E -- "${string_re}" "${doc_json}" || true; } \
+        | sed -E 's/^"//; s/"$//' \
         | sort -u > "${CI_TMP}/${name}-strings.txt"
     { grep -c '' "${CI_TMP}/${name}-strings.txt" || true; } > "${CI_TMP}/nvalues.txt"
-    read -r literal_values < "${CI_TMP}/nvalues.txt"
-    ci_info "${name}: checking ${literal_values} distinct identity-key value(s) against the allowlist"
+    read -r n_strings < "${CI_TMP}/nvalues.txt"
+
+    # A document with no strings at all would pass check 2 vacuously. Every
+    # PDF has at least a trailer /ID or a /Producer, so treat an empty
+    # extraction as a broken scan rather than a clean document.
+    if [ "${n_strings}" -eq 0 ]; then
+        ci_fail "${name}: no strings were extracted from qpdf --json; the scan is not working"
+    fi
+    ci_info "${name}: ${n_strings} distinct string(s) to check"
 
     failures_before="${ci_failures}"
-    while IFS= read -r entry; do
-        if [ -z "${entry}" ]; then
-            continue
-        fi
-        key="${entry%%\(*}"
-        key="${key% }"
-        value="${entry#*\(}"
-        value="${value%\)}"
+    while IFS= read -r value; do
         if [ -z "${value}" ]; then
             continue
         fi
@@ -106,12 +102,20 @@ for name in ${committed}; do
         # The value itself is not printed: if this trips, the string is
         # already committed and the point is to get it removed, not to
         # reprint it in a build log. Inspect it locally with
-        #   qpdf --qdf --object-streams=disable corpus/fixtures/<name>.pdf -
-        ci_fail "${name}: ${key} carries a value that is not on the allowlist (${#value} characters); inspect it locally, then either fix the fixture or extend scripts/ci/fixture-string-allowlist.txt"
+        #   qpdf --json corpus/fixtures/<name>.pdf
+        ci_fail "${name}: carries a string that is not on the allowlist (${#value} characters, including the type prefix); inspect it locally, then either fix the fixture or extend scripts/ci/fixture-string-allowlist.txt"
     done < "${CI_TMP}/${name}-strings.txt"
 
     if [ "${ci_failures}" -eq "${failures_before}" ]; then
-        ci_pass "${name}: every identity-key value is allowlisted"
+        ci_pass "${name}: all ${n_strings} strings are allowlisted"
+    fi
+
+    # The QDF expansion is still needed below: unlike the JSON, it contains
+    # the stream payloads, which is where an embedded path or an XMP packet
+    # would live.
+    expanded="${CI_TMP}/${name}-qdf.pdf"
+    if ! ci_qdf "${pdf}" "${expanded}"; then
+        continue
     fi
 
     # (3) No local filesystem paths, in the raw bytes or the expansion.

@@ -72,6 +72,11 @@ jobs:
       - name: Build the PDFKit helpers
         run: bash scripts/ci/build-swift-helpers.sh
 
+      # The invariant checks below are qpdf assertions; the runner image
+      # does not guarantee it. Installing when already present is a no-op.
+      - name: Install qpdf
+        run: brew install qpdf
+
       # S4's provenance cannot be re-derived here (its generator is not part
       # of this repository), so its defining properties are verified with
       # qpdf instead. See corpus/README.md.

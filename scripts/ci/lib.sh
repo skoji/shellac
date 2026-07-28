@@ -114,6 +114,25 @@ ci_qdf() {
     return 0
 }
 
+# ci_json <src pdf> <dst json>: qpdf's structural JSON. Unlike the QDF text
+# form this carries no stream payloads, so binary image data cannot produce
+# spurious matches or hide content, and qpdf has already decoded every
+# string (hex strings, escapes, and strings split across lines all arrive as
+# one JSON value). Warnings (exit 3) are tolerated as in ci_qdf.
+ci_json() {
+    local rc=0
+    if qpdf --json "$1" > "$2" 2> "${CI_TMP}/qpdf-json.log"; then
+        rc=0
+    else
+        rc=$?
+    fi
+    if [ "${rc}" -ne 0 ] && [ "${rc}" -ne 3 ]; then
+        ci_fail "qpdf --json failed on $1 (exit ${rc}); see ${CI_TMP}/qpdf-json.log"
+        return 1
+    fi
+    return 0
+}
+
 ci_finish() {
     if [ "${ci_failures}" -ne 0 ]; then
         printf '%s: %d check(s) failed\n' "${CI_LABEL}" "${ci_failures}" >&2
