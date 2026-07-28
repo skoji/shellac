@@ -68,9 +68,12 @@ bash "${generators}/generate_s8.sh" "${work_dir}"
 bash "${generators}/generate_encrypted_fixtures.sh" "${work_dir}"
 
 # encrypt_json <sample file> <output file>: qpdf's encryption report,
-# whitespace removed.
+# whitespace removed. Returns non-zero when qpdf could not read the file, so
+# the caller can skip the assertions that would have read the output.
 encrypt_json() {
-    qpdf --json --json-key=encrypt "$1" > "${CI_TMP}/enc-raw.json"
+    if ! ci_json "$1" "${CI_TMP}/enc-raw.json" --json-key=encrypt; then
+        return 1
+    fi
     tr -d ' \t\n' < "${CI_TMP}/enc-raw.json" > "$2"
 }
 
@@ -127,30 +130,32 @@ fi
 # --- S8 -------------------------------------------------------------------
 s8="${work_dir}/S8.pdf"
 ci_require_file "${s8}"
-qpdf --json "${s8}" > "${CI_TMP}/s8-raw.json"
-tr -d ' \t\n' < "${CI_TMP}/s8-raw.json" > "${CI_TMP}/s8.json"
-# Count every /Rotate entry whatever its value, then require them all to be
-# 90: enumerating the values that would be wrong would miss the ones nobody
-# listed (-90, 45, ...). Whitespace is already stripped, so a JSON number
-# ends at the following comma or closing brace; matching that terminator is
-# what keeps 90 from also accepting 900 or 90.5.
-ci_count "${CI_TMP}/s8.json" '"/Rotate":-?[0-9.]+'
-s8_rotate_total="${CI_COUNT}"
-ci_count "${CI_TMP}/s8.json" '"/Rotate":90[,}]'
-s8_rotate_90="${CI_COUNT}"
-if [ "${s8_rotate_total}" -ge 1 ]; then
-    ci_pass "S8: /Rotate entries present (${s8_rotate_total})"
-else
-    ci_fail "S8: no /Rotate entry at all"
+if ci_json "${s8}" "${CI_TMP}/s8-raw.json"; then
+    tr -d ' \t\n' < "${CI_TMP}/s8-raw.json" > "${CI_TMP}/s8.json"
+    # Count every /Rotate entry whatever its value, then require them all to
+    # be 90: enumerating the values that would be wrong would miss the ones
+    # nobody listed (-90, 45, ...). Whitespace is already stripped, so a JSON
+    # number ends at the following comma or closing brace; matching that
+    # terminator is what keeps 90 from also accepting 900 or 90.5.
+    ci_count "${CI_TMP}/s8.json" '"/Rotate":-?[0-9.]+'
+    s8_rotate_total="${CI_COUNT}"
+    ci_count "${CI_TMP}/s8.json" '"/Rotate":90[,}]'
+    s8_rotate_90="${CI_COUNT}"
+    if [ "${s8_rotate_total}" -ge 1 ]; then
+        ci_pass "S8: /Rotate entries present (${s8_rotate_total})"
+    else
+        ci_fail "S8: no /Rotate entry at all"
+    fi
+    ci_expect_eq "S8: /Rotate entries that are 90" "${s8_rotate_total}" "${s8_rotate_90}"
 fi
-ci_expect_eq "S8: /Rotate entries that are 90" "${s8_rotate_total}" "${s8_rotate_90}"
 
 # --- S9 -------------------------------------------------------------------
 s9="${work_dir}/S9-rc4-empty-user.pdf"
 ci_require_file "${s9}"
-encrypt_json "${s9}" "${CI_TMP}/s9.json"
-expect_encryption "S9" "${CI_TMP}/s9.json" 2 3 128 "RC4"
-ci_expect_contains "S9: annotations permitted" "${CI_TMP}/s9.json" '"modifyannotations":true'
+if encrypt_json "${s9}" "${CI_TMP}/s9.json"; then
+    expect_encryption "S9" "${CI_TMP}/s9.json" 2 3 128 "RC4"
+    ci_expect_contains "S9: annotations permitted" "${CI_TMP}/s9.json" '"modifyannotations":true'
+fi
 # No password was supplied, so "correct password" means the empty one.
 password_status "${s9}"
 ci_expect_eq "S9: --requires-password status (3 = opens as supplied)" "3" "${CI_PW_STATUS}"
@@ -158,9 +163,10 @@ ci_expect_eq "S9: --requires-password status (3 = opens as supplied)" "3" "${CI_
 # --- S10 ------------------------------------------------------------------
 s10="${work_dir}/S10-aes256-empty-user.pdf"
 ci_require_file "${s10}"
-encrypt_json "${s10}" "${CI_TMP}/s10.json"
-expect_encryption "S10" "${CI_TMP}/s10.json" 5 6 256 "AESv3"
-ci_expect_contains "S10: annotations permitted" "${CI_TMP}/s10.json" '"modifyannotations":true'
+if encrypt_json "${s10}" "${CI_TMP}/s10.json"; then
+    expect_encryption "S10" "${CI_TMP}/s10.json" 5 6 256 "AESv3"
+    ci_expect_contains "S10: annotations permitted" "${CI_TMP}/s10.json" '"modifyannotations":true'
+fi
 password_status "${s10}"
 ci_expect_eq "S10: --requires-password status (3 = opens as supplied)" "3" "${CI_PW_STATUS}"
 
@@ -175,11 +181,12 @@ ci_expect_eq "S11: --requires-password status (0 = a password is required)" "0" 
 # --- S12 ------------------------------------------------------------------
 s12="${work_dir}/S12-annotations-restricted.pdf"
 ci_require_file "${s12}"
-encrypt_json "${s12}" "${CI_TMP}/s12.json"
-expect_encryption "S12" "${CI_TMP}/s12.json" 5 6 256 "AESv3"
+if encrypt_json "${s12}" "${CI_TMP}/s12.json"; then
+    expect_encryption "S12" "${CI_TMP}/s12.json" 5 6 256 "AESv3"
+    ci_expect_contains "S12: annotations not permitted" "${CI_TMP}/s12.json" '"modifyannotations":false'
+    ci_expect_contains "S12: modification not permitted" "${CI_TMP}/s12.json" '"modify":false'
+fi
 password_status "${s12}"
 ci_expect_eq "S12: --requires-password status (3 = opens as supplied)" "3" "${CI_PW_STATUS}"
-ci_expect_contains "S12: annotations not permitted" "${CI_TMP}/s12.json" '"modifyannotations":false'
-ci_expect_contains "S12: modification not permitted" "${CI_TMP}/s12.json" '"modify":false'
 
 ci_finish
