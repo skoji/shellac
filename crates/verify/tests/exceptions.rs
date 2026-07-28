@@ -134,7 +134,10 @@ fn committed_list_covers_the_registered_cases() {
     // vertical-text samples.
     for sample in ["S1", "S8", "S9-rc4-empty-user", "S10-aes256-empty-user"] {
         assert!(list.is_known(sample, "C11a", "add"), "{sample} C11a add");
-        assert!(list.is_known(sample, "C8", "loop-01"), "{sample} C8 loop-01");
+        assert!(
+            list.is_known(sample, "C8", "loop-01"),
+            "{sample} C8 loop-01"
+        );
     }
     assert!(!list.is_known("S2", "C11a", "add"));
     assert!(!list.is_known("S1", "C6", "add"));
