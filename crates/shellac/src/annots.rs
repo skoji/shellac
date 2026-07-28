@@ -412,9 +412,9 @@ pub fn open_incremental_from_bytes(bytes: Vec<u8>) -> Result<IncrementalDocument
 /// write never corrupts the original file. If serialization or the rename
 /// fails, the temp file is removed rather than left behind: the PDF often
 /// lives in a directory that is synced or presented to the user, where a
-/// stray `*.tmp-shelff-pdf-incr` sibling is not merely untidy but visible.
+/// stray `*.tmp-shellac-incr` sibling is not merely untidy but visible.
 pub fn save_incremental(path: &Path, idoc: &mut IncrementalDocument) -> Result<()> {
-    let tmp_path = path.with_extension("tmp-shelff-pdf-incr");
+    let tmp_path = path.with_extension("tmp-shellac-incr");
     let write_result = (|| -> Result<()> {
         let mut f = fs::File::create(&tmp_path)?;
         idoc.save_to(&mut f)?;

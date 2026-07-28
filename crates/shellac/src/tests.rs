@@ -164,7 +164,7 @@ fn apply_ops_on_bytes(bytes: &[u8], batch_json: &str) -> (ApplyResult, Vec<u8>) 
     // Combine PID + a monotonic counter so parallel `cargo test` threads
     // never collide on the same directory name.
     let dir = std::env::temp_dir().join(format!(
-        "shelff-pdf-test-{}-{}",
+        "shellac-test-{}-{}",
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
@@ -1517,7 +1517,7 @@ fn run_can_open(bytes: &[u8]) -> i32 {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let dir = std::env::temp_dir().join(format!(
-        "shelff-pdf-can-open-test-{}-{}",
+        "shellac-can-open-test-{}-{}",
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
