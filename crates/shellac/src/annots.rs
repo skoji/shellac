@@ -90,8 +90,16 @@ fn rect_array(r: UserSpaceRect) -> Object {
 }
 
 /// QuadPoints for a single-quad rectangle, ordered upper-left, upper-right,
-/// lower-left, lower-right — the P1..P4 order PDF 1.7 §12.5.6.10 gives for
-/// text-markup /QuadPoints.
+/// lower-left, lower-right.
+///
+/// That is a "Z" order, and it is deliberately **not** what the text-markup
+/// annotation clause of ISO 32000-1 says: the prose there describes the four
+/// vertices as being given in counterclockwise order, which would be
+/// UL, LL, LR, UR. Acrobat has always read and written the Z order instead,
+/// every other viewer followed Acrobat rather than the prose, and the
+/// discrepancy is long-standing and widely known. Writing what the sentence
+/// says would misdraw the markup in every viewer that matters, so this
+/// follows the practice.
 fn quad_points_array(r: UserSpaceRect) -> Object {
     let r = r.0;
     Object::Array(vec![
@@ -730,11 +738,18 @@ pub fn append_annot_refs(
 /// can only append. The previous revision's bytes — including the annotation
 /// dictionary — stay on disk untouched by definition, so "deleting" means
 /// writing a newer revision of the same object number that supersedes it.
-/// A null object is the smallest such revision, and any reference that still
-/// points at it resolves to null, which PDF readers treat as absent
-/// (PDF 1.7 §7.3.9). Marking the xref entry free instead would work for
-/// readers that honor it, but leaves a reference to a free object behind,
-/// which §7.5.4 makes an error rather than a no-op.
+/// A null object is the smallest such revision.
+///
+/// Marking the cross-reference entry free in the appended section would be
+/// the other option, and a reader that resolves a now-dangling reference is
+/// required to treat it as null rather than to fail, so the two are
+/// equivalent as far as the object graph is concerned. The explicit null is
+/// preferred for two practical reasons: it is a visible object in the
+/// appended bytes, so what an increment removed can be read straight out of
+/// a diff or a `qpdf --check`, and it does not depend on a reader threading
+/// the free-entry chain correctly across several appended cross-reference
+/// sections — an area where real files and real readers disagree more often
+/// than the object rules do.
 pub fn remove_annot_refs(
     idoc: &mut IncrementalDocument,
     page_id: ObjectId,
