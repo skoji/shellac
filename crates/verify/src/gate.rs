@@ -21,6 +21,22 @@ use crate::util::trunc;
 /// baseline load, or a loop that stopped early.
 pub const FATAL_CHECK: &str = "fatal";
 
+/// Check id for a loop iteration whose incremental growth reached the C8
+/// limit.
+///
+/// Not the `C8` aggregate id, because the two failures are excusable on
+/// different evidence: the entries this corpus carries against `C8` were
+/// written about position drift, and a file that started growing is a
+/// finding they say nothing about. Tolerating a size regression therefore
+/// takes an entry that names `C8-delta`.
+pub const C8_DELTA_CHECK: &str = "C8-delta";
+
+/// Check id for a C8 failure the reconstruction could not attribute to any
+/// iteration. Also kept off `C8`, so that the fallback keeps the meaning it
+/// exists for: a run the matrix failed for a reason the gate cannot name is
+/// not a run the registry can excuse.
+pub const C8_UNATTRIBUTED_CHECK: &str = "C8-unattributed";
+
 /// Scenario id used when a sample failed before any scenario ran.
 pub const BASELINE_SCENARIO: &str = "baseline";
 

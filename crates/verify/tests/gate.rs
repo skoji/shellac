@@ -8,8 +8,8 @@
 use verify::encrypted::EncMode;
 use verify::exceptions::KnownExceptions;
 use verify::gate::{
-    FATAL_CHECK, FailCell, FailCells, GateOutcome, apply_exceptions, collect_fail_cells,
-    render_gate_section, sanitize_cells,
+    C8_DELTA_CHECK, C8_UNATTRIBUTED_CHECK, FATAL_CHECK, FailCell, FailCells, GateOutcome,
+    apply_exceptions, collect_fail_cells, render_gate_section, sanitize_cells,
 };
 use verify::sample::SampleResult;
 use verify::sanitize::Sanitizer;
@@ -142,7 +142,11 @@ fn c8_reports_an_oversized_increment_even_when_every_check_passed() {
     r.c8_pass = false;
     r.c8_detail = "iter 4 increment 51200 bytes >= 50KB".to_string();
     let cells = cells_of(r);
-    assert_eq!(triples(&cells), vec![triple("S4", "C8", "loop-04")]);
+    assert_eq!(
+        triples(&cells),
+        vec![triple("S4", C8_DELTA_CHECK, "loop-04")],
+        "an oversized increment is its own check, not the C8 aggregate"
+    );
     assert!(cells[0].detail.contains("51200"));
 }
 
@@ -168,7 +172,10 @@ fn a_c8_failure_with_no_reconstructable_reason_still_produces_a_cell() {
     r.c8_pass = false;
     r.c8_detail = "something the walk cannot attribute".to_string();
     let cells = cells_of(r);
-    assert_eq!(triples(&cells), vec![triple("S5", "C8", "loop")]);
+    assert_eq!(
+        triples(&cells),
+        vec![triple("S5", C8_UNATTRIBUTED_CHECK, "loop")]
+    );
     assert_eq!(cells[0].detail, "something the walk cannot attribute");
 }
 
@@ -340,6 +347,45 @@ fn one_failure_outside_the_measured_distribution_fails_the_run() {
     let out = apply_exceptions(&cells, &committed_list());
     assert!(!out.passed());
     assert_eq!(triples(&out.unknown), vec![triple("S2", "C1", "add")]);
+}
+
+#[test]
+fn an_oversized_increment_fails_the_run_for_a_sample_the_registry_excuses_for_c8() {
+    // S1 and S7 are both registered against C8 for their loop scenarios, for
+    // position drift. A file that starts growing is a different finding, and
+    // no entry written about drift may absorb it.
+    for name in ["S1", "S7"] {
+        let mut results = measured_results();
+        let r = results
+            .iter_mut()
+            .find(|r| r.name == name)
+            .expect("sample is in the distribution");
+        r.loop_deltas[5] = 64 * 1024;
+        r.c8_pass = false;
+
+        let out = apply_exceptions(&collect_fail_cells(&results), &committed_list());
+        assert_eq!(
+            triples(&out.unknown),
+            vec![triple(name, C8_DELTA_CHECK, "loop-06")],
+            "{name}: a size regression must survive the registry"
+        );
+    }
+}
+
+#[test]
+fn an_unattributable_c8_failure_fails_the_run_for_a_sample_the_registry_excuses_for_c8() {
+    // The fallback exists so the gate never passes a run the matrix failed.
+    // S1 is excused for C8 in every scenario, so an excusable fallback would
+    // hand that guarantee straight back.
+    let mut r = passing_sample("S1");
+    r.c8_pass = false;
+    r.c8_detail = "matrix says FAIL, the walk cannot say why".to_string();
+
+    let out = apply_exceptions(&cells_of(r), &committed_list());
+    assert_eq!(
+        triples(&out.unknown),
+        vec![triple("S1", C8_UNATTRIBUTED_CHECK, "loop")]
+    );
 }
 
 // ---- machine-readable output and rendering --------------------------------
