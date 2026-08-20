@@ -4,12 +4,12 @@
 
 use std::path::Path;
 
-use crate::anchor::{TextAnchor, find_text_anchor};
+use crate::anchor::{TextAnchor, find_text_anchor, find_text_anchor_poppler};
 use crate::checks::bbox::{PosCheck, PosDerive};
 use crate::checks::enc_qpdf::qpdf_check_ok;
 use crate::checks::pdfkit::pdfkit_check;
 use crate::checks::producer::producer_info;
-use crate::checks::qpdf::QuadCheck;
+use crate::checks::qpdf::{QpdfDoc, QuadCheck};
 use crate::consts::{C8_MAX_DELTA, SKIP_REFUSED};
 use crate::encrypted::{EncMode, classify_encrypted, extract_status};
 use crate::engine::SaveEngine;
@@ -211,36 +211,50 @@ pub fn run_sample(
     };
     res.base_size = base_state.data.len();
     res.base_eof = base_state.eof;
-    let (ck, _raw) = pdfkit_check(
-        &bins.expect("pdfkit helpers").pdfkit_check,
-        &base_str,
-        0,
-        "",
-        "",
-    );
-    let ck = match ck {
-        Ok(c) => c,
-        Err(e) => {
-            res.fatal_err = format!("baseline pdfkit_check: {e}");
-            return res;
+    // The baseline page count, plus the annotation types and thumbnail bit
+    // only PDFKit reports. Without the helpers the page count comes from
+    // qpdf and the other two are unavailable rather than empty.
+    match bins {
+        Some(b) => {
+            let (ck, _raw) = pdfkit_check(&b.pdfkit_check, &base_str, 0, "", "");
+            let ck = match ck {
+                Ok(c) => c,
+                Err(e) => {
+                    res.fatal_err = format!("baseline pdfkit_check: {e}");
+                    return res;
+                }
+            };
+            res.pages = ck.page_count;
+            res.base_thumb_ok = ck.thumbnail_ok;
+            res.base_annot_types = dedup(&ck.annot_types);
         }
-    };
-    res.pages = ck.page_count;
-    res.base_thumb_ok = ck.thumbnail_ok;
-    res.base_annot_types = dedup(&ck.annot_types);
+        None => {
+            res.pdfkit_disabled = true;
+            match QpdfDoc::load(&base_str) {
+                Ok((doc, _warning)) => res.pages = doc.page_count() as i64,
+                Err(e) => {
+                    res.fatal_err = format!("baseline qpdf: {e}");
+                    return res;
+                }
+            }
+        }
+    }
     let (producer, exif) = producer_info(&base_str);
     res.base_producer = producer;
     res.base_exif_producer = exif;
 
     // Text anchor: resolved once per sample from the untouched baseline.
-    let mut anchor =
-        match find_text_anchor(&bins.expect("pdfkit helpers").pdfkit_textbbox, &base_str, 1) {
-            Ok(a) => a,
-            Err(e) => {
-                res.anchor_err = e;
-                TextAnchor::default()
-            }
-        };
+    let anchor_result = match bins {
+        Some(b) => find_text_anchor(&b.pdfkit_textbbox, &base_str, 1),
+        None => find_text_anchor_poppler(&base_str, 1),
+    };
+    let mut anchor = match anchor_result {
+        Ok(a) => a,
+        Err(e) => {
+            res.anchor_err = e;
+            TextAnchor::default()
+        }
+    };
     res.anchor = anchor.clone();
     if !res.anchor_err.is_empty() {
         anchor = TextAnchor::default();

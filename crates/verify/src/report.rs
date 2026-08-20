@@ -238,7 +238,8 @@ pub fn build_report(
     // Text anchors.
     sb.push_str("\n## Text anchors\n\n");
     sb.push_str(
-        "The needle chosen by pdfkit_textbbox on each sample's page 1. Samples with found=false \
+        "The needle chosen on each sample's page 1 — by pdfkit_textbbox, or by \
+`pdftotext -bbox-layout` when the PDFKit helpers are disabled. Samples with found=false \
 skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement \
 (100,100)-(300,120) etc.\n\n",
     );
@@ -320,11 +321,19 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
             "- Producer: pdfinfo={:?} exiftool={:?}\n",
             r.base_producer, r.base_exif_producer
         ));
-        sb.push_str(&format!(
-            "- existing annotation types: {} / thumbnails: {}\n\n",
-            bracket_list(&r.base_annot_types),
-            r.base_thumb_ok
-        ));
+        if r.pdfkit_disabled {
+            // Absent, not empty: reporting `[]` and `false` would read as
+            // "no annotations, thumbnails broken".
+            sb.push_str(
+                "- existing annotation types: n/a (PDFKit helpers disabled) / thumbnails: n/a\n\n",
+            );
+        } else {
+            sb.push_str(&format!(
+                "- existing annotation types: {} / thumbnails: {}\n\n",
+                bracket_list(&r.base_annot_types),
+                r.base_thumb_ok
+            ));
+        }
 
         sb.push_str("### add / modify-comment / add-multiline / remove\n\n");
         scenario_section(&mut sb, &r.add, san);
