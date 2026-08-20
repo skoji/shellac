@@ -99,14 +99,19 @@ fn matrix_runs_on_s1_without_the_pdfkit_helpers() {
     let md = std::fs::read_to_string(&run.out).unwrap();
     assert_common_report_shape(&run, &md);
     assert!(md.contains("- PDFKit helpers: disabled"));
-    // The checks the helpers provide are absent, not failing; the ones that
-    // do not need them are still evaluated.
-    for absent in ["| C5 | ", "| C7 | ", "| C11b | "] {
-        assert!(
-            !md.contains(absent),
-            "{absent:?} must not appear in a scenario table:\n{md}"
-        );
+    // The checks the helpers provide are absent, not failing. The legend
+    // lists every check whatever the run evaluated, so absence is asserted
+    // over the verdict a scenario table would carry.
+    for id in ["C5", "C7", "C11b"] {
+        for verdict in ["pass", "**FAIL**"] {
+            let row = format!("| {id} | {verdict} |");
+            assert!(
+                !md.contains(&row),
+                "{row:?} must not appear in a scenario table:\n{md}"
+            );
+        }
     }
+    // The checks that need no PDFKit still ran.
     assert!(md.contains("| C1 | pass |"));
     assert!(md.contains("| C11a | pass |"));
     let _ = std::fs::remove_dir_all(&run.tmp);
