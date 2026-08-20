@@ -5,10 +5,10 @@
 //!
 //! Needle selection: candidates are `<word>` elements whose trimmed text
 //! equals the needle exactly, in document order. With multiple candidates
-//! the one whose user-space center is nearest to the PDFKit-reported anchor
-//! bounds is chosen and the ambiguity is noted in the detail (the note does
-//! not affect the verdict). No fuzzy/substring fallback: an unmatched
-//! needle is a skip, not a fail.
+//! the one whose user-space center is nearest to the bounds the anchor was
+//! resolved with is chosen, and the ambiguity is noted in the detail (the
+//! note does not affect the verdict). No fuzzy/substring fallback: an
+//! unmatched needle is a skip, not a fail.
 
 use std::collections::BTreeMap;
 
@@ -316,7 +316,7 @@ pub fn evaluate_c11a(
     let mut detail = notes.join("; ");
     if selection.candidates >= 2 {
         detail.push_str(&format!(
-            "; needle matched {} times on page 1, selected nearest to PDFKit anchor bounds (center distance {:.2}pt)",
+            "; needle matched {} times on page 1, selected nearest to the resolved anchor bounds (center distance {:.2}pt)",
             selection.candidates, selection.center_distance
         ));
     }
@@ -539,7 +539,7 @@ mod tests {
         );
         assert!(out.pass, "nearest candidate should match: {}", out.detail);
         assert!(out.detail.contains(
-            "; needle matched 2 times on page 1, selected nearest to PDFKit anchor bounds (center distance 0.00pt)"
+            "; needle matched 2 times on page 1, selected nearest to the resolved anchor bounds (center distance 0.00pt)"
         ));
         let sel = out.selection.unwrap();
         assert_eq!(sel.candidates, 2);

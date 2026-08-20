@@ -200,7 +200,7 @@ fn bbox_s8_reports_unrotated_page_dims() {
 
 /// Real-data C11a evaluation over the S1 fixtures: the needle appears
 /// twice in pdftotext output, and the selection must prefer the candidate
-/// nearest to the PDFKit anchor bounds (the vertical title column near
+/// nearest to the anchor bounds it was given (the vertical title column near
 /// x=500), not the first candidate in document order (near x=77).
 #[test]
 fn c11a_real_s1_data_selects_nearest_candidate() {
@@ -231,10 +231,9 @@ fn c11a_real_s1_data_selects_nearest_candidate() {
         "must select the vertical-column candidate, got {}",
         sel.chosen
     );
-    assert!(
-        out.detail
-            .contains("needle matched 2 times on page 1, selected nearest to PDFKit anchor bounds")
-    );
+    assert!(out.detail.contains(
+        "needle matched 2 times on page 1, selected nearest to the resolved anchor bounds"
+    ));
 }
 
 // ---- the PDFKit-free anchor path ----

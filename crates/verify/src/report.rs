@@ -149,7 +149,7 @@ fn scenario_section(out: &mut String, sc: &Scenario, san: &Sanitizer) {
         && sel.candidates >= 2
     {
         out.push_str(&format!(
-                "- C11a needle selection: {} candidates on page 1; selected {} (center distance {:.2}pt from PDFKit anchor bounds)\n",
+                "- C11a needle selection: {} candidates on page 1; selected {} (center distance {:.2}pt from the resolved anchor bounds)\n",
                 sel.candidates, sel.chosen, sel.center_distance
             ));
     }
@@ -778,7 +778,7 @@ mod tests {
         });
         let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains(
-            "- C11a needle selection: 3 candidates on page 1; selected (1.00,2.00)-(3.00,4.00) (center distance 1.23pt from PDFKit anchor bounds)"
+            "- C11a needle selection: 3 candidates on page 1; selected (1.00,2.00)-(3.00,4.00) (center distance 1.23pt from the resolved anchor bounds)"
         ));
     }
 }
