@@ -43,9 +43,12 @@ pub fn load_state(path: &Path, pdfkit_text_bin: Option<&str>) -> Result<FileStat
         Ok(t) => t,
         Err(e) => format!("PDFTOTEXT-ERROR: {e}"),
     };
-    let ktext = match pdfkit_text(pdfkit_text_bin.unwrap_or_default(), &path_str) {
-        Ok(t) => t,
-        Err(e) => format!("PDFKIT-ERROR: {e}"),
+    let ktext = match pdfkit_text_bin {
+        Some(bin) => match pdfkit_text(bin, &path_str) {
+            Ok(t) => t,
+            Err(e) => format!("PDFKIT-ERROR: {e}"),
+        },
+        None => String::new(),
     };
     let eof = count_eof(&data);
     Ok(FileState {

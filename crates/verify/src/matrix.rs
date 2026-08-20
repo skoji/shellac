@@ -88,7 +88,7 @@ fn gate_annotation(opts: &MatrixOpts, cells: &[FailCell]) -> Result<String, Stri
 /// mode run where Xcode does not exist.
 fn build_bins(opts: &MatrixOpts) -> Result<Option<Bins>, String> {
     if opts.no_pdfkit {
-        todo!()
+        return Ok(None);
     }
     Ok(Some(Bins {
         pdfkit_text: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_text")?,
@@ -101,7 +101,11 @@ fn build_bins(opts: &MatrixOpts) -> Result<Option<Bins>, String> {
 /// report is the audit trail, so which checks a run could not evaluate has
 /// to be visible in it.
 fn pdfkit_env_note(no_pdfkit: bool) -> &'static str {
-    todo!()
+    if no_pdfkit {
+        "disabled (C5/C7/C11b not evaluated on this run)"
+    } else {
+        "enabled"
+    }
 }
 
 fn env_versions(eng: &dyn SaveEngine, no_pdfkit: bool) -> String {
