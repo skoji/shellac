@@ -171,6 +171,27 @@ impl QpdfDoc {
     }
 }
 
+/// A page's raw geometry as recorded in the file: the unrotated MediaBox in
+/// user space and the /Rotate entry that applies to it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct PageGeometry {
+    pub media_box: crate::geom::Rect,
+    pub rotate: i64,
+}
+
+impl QpdfDoc {
+    /// Number of pages in the document.
+    pub fn page_count(&self) -> usize {
+        todo!()
+    }
+
+    /// Geometry of one page (0-based), resolving `/MediaBox` and `/Rotate`
+    /// through the page tree when the page itself does not carry them.
+    pub fn page_geometry(&self, _index: usize) -> Result<PageGeometry, String> {
+        todo!()
+    }
+}
+
 fn looks_like_ref(s: &str) -> bool {
     let mut parts = s.split(' ');
     let (Some(a), Some(b), Some(c), None) =
@@ -569,6 +590,121 @@ mod tests {
             "qpdf error: exit status 2 (boom); id-hl: object=false page_attached=false (want present)"
         );
         assert!(out.ap_by_id.is_empty());
+    }
+
+    // ---- page geometry ----
+
+    fn geometry_doc() -> QpdfDoc {
+        // Page 1 carries its own geometry; page 2 inherits both entries
+        // from the /Pages node; page 3 inherits /MediaBox but overrides
+        // /Rotate; page 4 has no /MediaBox anywhere.
+        let json = r#"{
+          "pages": [
+            { "object": "10 0 R" }, { "object": "11 0 R" },
+            { "object": "12 0 R" }, { "object": "13 0 R" }
+          ],
+          "qpdf": [
+            { "jsonversion": 2 },
+            {
+              "obj:5 0 R": { "value": { "/Type": "/Pages", "/MediaBox": [0, 0, 595.486, 842.202], "/Rotate": 180 } },
+              "obj:6 0 R": { "value": { "/Type": "/Pages" } },
+              "obj:10 0 R": { "value": { "/Type": "/Page", "/Parent": "5 0 R", "/MediaBox": [0, 0, 612, 792], "/Rotate": 90 } },
+              "obj:11 0 R": { "value": { "/Type": "/Page", "/Parent": "5 0 R" } },
+              "obj:12 0 R": { "value": { "/Type": "/Page", "/Parent": "5 0 R", "/Rotate": 270 } },
+              "obj:13 0 R": { "value": { "/Type": "/Page", "/Parent": "6 0 R" } }
+            }
+          ]
+        }"#;
+        QpdfDoc::parse(json.as_bytes()).unwrap()
+    }
+
+    #[test]
+    fn page_count_is_the_length_of_the_pages_array() {
+        assert_eq!(geometry_doc().page_count(), 4);
+        assert_eq!(QpdfDoc::parse(b"{}").unwrap().page_count(), 0);
+    }
+
+    #[test]
+    fn page_geometry_prefers_the_page_over_the_page_tree() {
+        let g = geometry_doc().page_geometry(0).unwrap();
+        assert_eq!(g.media_box, crate::geom::Rect::new(0.0, 0.0, 612.0, 792.0));
+        assert_eq!(g.rotate, 90);
+    }
+
+    #[test]
+    fn page_geometry_inherits_through_parent() {
+        let doc = geometry_doc();
+        let g = doc.page_geometry(1).unwrap();
+        assert_eq!(
+            g.media_box,
+            crate::geom::Rect::new(0.0, 0.0, 595.486, 842.202)
+        );
+        assert_eq!(g.rotate, 180);
+
+        // Inheritance is per entry: /MediaBox comes from the parent while
+        // /Rotate is overridden on the page.
+        let g3 = doc.page_geometry(2).unwrap();
+        assert_eq!(
+            g3.media_box,
+            crate::geom::Rect::new(0.0, 0.0, 595.486, 842.202)
+        );
+        assert_eq!(g3.rotate, 270);
+    }
+
+    #[test]
+    fn a_page_without_a_media_box_anywhere_is_an_error() {
+        let err = geometry_doc().page_geometry(3).unwrap_err();
+        assert!(err.contains("/MediaBox"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn a_page_index_past_the_end_is_an_error() {
+        let err = geometry_doc().page_geometry(4).unwrap_err();
+        assert!(err.contains("page 5"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn page_geometry_resolves_indirect_values_and_normalizes_corner_order() {
+        let json = r#"{
+          "pages": [ { "object": "10 0 R" } ],
+          "qpdf": [
+            { "jsonversion": 2 },
+            {
+              "obj:10 0 R": { "value": { "/MediaBox": "20 0 R", "/Rotate": "21 0 R" } },
+              "obj:20 0 R": { "value": [595.486, 842.202, 0, 0] },
+              "obj:21 0 R": { "value": -90 }
+            }
+          ]
+        }"#;
+        let g = QpdfDoc::parse(json.as_bytes())
+            .unwrap()
+            .page_geometry(0)
+            .unwrap();
+        assert_eq!(
+            g.media_box,
+            crate::geom::Rect::new(0.0, 0.0, 595.486, 842.202)
+        );
+        assert_eq!(g.rotate, -90);
+    }
+
+    #[test]
+    fn a_parent_cycle_does_not_hang() {
+        let json = r#"{
+          "pages": [ { "object": "10 0 R" } ],
+          "qpdf": [
+            { "jsonversion": 2 },
+            {
+              "obj:10 0 R": { "value": { "/Parent": "11 0 R" } },
+              "obj:11 0 R": { "value": { "/Parent": "10 0 R" } }
+            }
+          ]
+        }"#;
+        assert!(
+            QpdfDoc::parse(json.as_bytes())
+                .unwrap()
+                .page_geometry(0)
+                .is_err()
+        );
     }
 
     #[test]

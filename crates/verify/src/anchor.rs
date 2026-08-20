@@ -4,6 +4,8 @@
 
 use serde::Deserialize;
 
+use crate::checks::bbox::{BboxWord, pdftotext_bbox_words};
+use crate::checks::qpdf::{PageGeometry, QpdfDoc};
 use crate::geom::Rect;
 use crate::proc::run;
 use crate::util::first_line;
@@ -80,9 +82,111 @@ pub fn find_text_anchor(bin: &str, path: &str, page: i64) -> Result<TextAnchor, 
     Ok(ta)
 }
 
+/// Chooses the anchor needle from one page's `pdftotext -bbox-layout`
+/// words, mirroring the rule pdfkit_textbbox applies to PDFKit's own
+/// extraction: the first run of at least three non-whitespace characters,
+/// or the longest run when none reaches three. Both sides keep the earliest
+/// candidate on a tie.
+pub fn choose_needle_word(_words: &[BboxWord]) -> Option<&BboxWord> {
+    todo!()
+}
+
+/// Builds a text anchor from one page's poppler words and the page geometry
+/// read from qpdf — the PDFKit-free path. `found == false` when the page has
+/// no word to anchor on, which is the same outcome pdfkit_textbbox reports
+/// for a page with no extractable text.
+pub fn anchor_from_words(_words: &[BboxWord], _geom: &PageGeometry) -> TextAnchor {
+    todo!()
+}
+
+/// Resolves a sample's anchor without PDFKit: page geometry from qpdf, the
+/// needle and its bounds from `pdftotext -bbox-layout`.
+pub fn find_text_anchor_poppler(_path: &str, _page: i64) -> Result<TextAnchor, String> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn word(text: &str, x_min: f64, y_min: f64, x_max: f64, y_max: f64) -> BboxWord {
+        BboxWord {
+            text: text.to_string(),
+            x_min,
+            y_min,
+            x_max,
+            y_max,
+        }
+    }
+
+    #[test]
+    fn needle_is_the_first_run_of_at_least_three_characters() {
+        let words = vec![
+            word("ー", 0.0, 0.0, 1.0, 1.0),
+            word("ab", 0.0, 0.0, 1.0, 1.0),
+            word("abc", 2.0, 0.0, 3.0, 1.0),
+            word("abcdefg", 4.0, 0.0, 5.0, 1.0),
+        ];
+        assert_eq!(choose_needle_word(&words).unwrap().text, "abc");
+    }
+
+    #[test]
+    fn needle_falls_back_to_the_longest_run_and_keeps_the_earliest_tie() {
+        let short = vec![
+            word("a", 0.0, 0.0, 1.0, 1.0),
+            word("xy", 1.0, 0.0, 2.0, 1.0),
+            word("zw", 2.0, 0.0, 3.0, 1.0),
+        ];
+        assert_eq!(choose_needle_word(&short).unwrap().text, "xy");
+    }
+
+    #[test]
+    fn needle_ignores_words_that_are_only_whitespace() {
+        let words = vec![
+            word("   ", 0.0, 0.0, 1.0, 1.0),
+            word(" ab ", 1.0, 0.0, 2.0, 1.0),
+        ];
+        assert_eq!(choose_needle_word(&words).unwrap().text, " ab ");
+        assert!(choose_needle_word(&[word("  ", 0.0, 0.0, 1.0, 1.0)]).is_none());
+        assert!(choose_needle_word(&[]).is_none());
+    }
+
+    fn geometry(rotate: i64) -> PageGeometry {
+        PageGeometry {
+            media_box: Rect::new(0.0, 0.0, 600.0, 800.0),
+            rotate,
+        }
+    }
+
+    #[test]
+    fn anchor_reports_needle_bounds_in_unrotated_user_space() {
+        // Device (10, 88)-(60, 100) on an 800-high page -> user y 700..712.
+        let words = vec![word("needle", 10.0, 88.0, 60.0, 100.0)];
+        let a = anchor_from_words(&words, &geometry(0));
+        assert!(a.found);
+        assert_eq!(a.needle, "needle");
+        assert_eq!(a.user_bounds, Rect::new(10.0, 700.0, 60.0, 712.0));
+        assert_eq!(a.page_rotation, 0);
+        assert_eq!(a.media_box, Rect::new(0.0, 0.0, 600.0, 800.0));
+    }
+
+    #[test]
+    fn anchor_needle_is_trimmed_but_bounds_come_from_the_word() {
+        let words = vec![word(" needle\n", 10.0, 88.0, 60.0, 100.0)];
+        let a = anchor_from_words(&words, &geometry(0));
+        assert_eq!(a.needle, "needle");
+        assert_eq!(a.user_bounds, Rect::new(10.0, 700.0, 60.0, 712.0));
+    }
+
+    #[test]
+    fn a_page_with_no_words_yields_an_anchorless_result_with_geometry() {
+        let a = anchor_from_words(&[], &geometry(90));
+        assert!(!a.found);
+        assert_eq!(a.needle, "");
+        assert_eq!(a.user_bounds, Rect::default());
+        assert_eq!(a.page_rotation, 90);
+        assert_eq!(a.media_box, Rect::new(0.0, 0.0, 600.0, 800.0));
+    }
 
     #[test]
     fn parse_anchor_json() {
