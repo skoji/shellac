@@ -1,14 +1,24 @@
-//! Text-anchor resolution via the pdfkit_textbbox helper. The anchor is a
-//! short text run (the "needle") chosen from a page's extracted text plus
-//! its bounds in raw PDF user space; annotation placements derive from it.
+//! Text-anchor resolution. The anchor is a short text run (the "needle")
+//! chosen from a page's extracted text plus its bounds in raw PDF user
+//! space; annotation placements derive from it.
+//!
+//! Two paths produce one: the pdfkit_textbbox helper, and — where PDFKit is
+//! unavailable — qpdf for the page geometry and `pdftotext -bbox-layout`
+//! for the words. The two need not choose the same occurrence of the same
+//! needle; what matters is that placement and the position check read the
+//! anchor from the same extractor, which they do.
 
 use serde::Deserialize;
 
 use crate::checks::bbox::{BboxWord, pdftotext_bbox_words};
 use crate::checks::qpdf::{PageGeometry, QpdfDoc};
-use crate::geom::Rect;
+use crate::geom::{Rect, rect_device_top_left_to_user};
 use crate::proc::run;
 use crate::util::first_line;
+
+/// Shortest run pdfkit_textbbox accepts as a needle without falling back to
+/// the longest run on the page. Mirrored here so both paths choose alike.
+const MIN_NEEDLE_CHARS: usize = 3;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 struct RectJson {
@@ -87,22 +97,63 @@ pub fn find_text_anchor(bin: &str, path: &str, page: i64) -> Result<TextAnchor, 
 /// extraction: the first run of at least three non-whitespace characters,
 /// or the longest run when none reaches three. Both sides keep the earliest
 /// candidate on a tie.
-pub fn choose_needle_word(_words: &[BboxWord]) -> Option<&BboxWord> {
-    todo!()
+pub fn choose_needle_word(words: &[BboxWord]) -> Option<&BboxWord> {
+    let runs: Vec<&BboxWord> = words.iter().filter(|w| !w.text.trim().is_empty()).collect();
+    if let Some(w) = runs
+        .iter()
+        .find(|w| w.text.trim().chars().count() >= MIN_NEEDLE_CHARS)
+    {
+        return Some(w);
+    }
+    let mut best: Option<&BboxWord> = None;
+    for w in runs {
+        let longer = best
+            .map(|b| w.text.trim().chars().count() > b.text.trim().chars().count())
+            .unwrap_or(true);
+        if longer {
+            best = Some(w);
+        }
+    }
+    best
 }
 
 /// Builds a text anchor from one page's poppler words and the page geometry
 /// read from qpdf — the PDFKit-free path. `found == false` when the page has
 /// no word to anchor on, which is the same outcome pdfkit_textbbox reports
 /// for a page with no extractable text.
-pub fn anchor_from_words(_words: &[BboxWord], _geom: &PageGeometry) -> TextAnchor {
-    todo!()
+pub fn anchor_from_words(words: &[BboxWord], geom: &PageGeometry) -> TextAnchor {
+    let mb = geom.media_box;
+    let mut ta = TextAnchor {
+        page_rotation: geom.rotate,
+        media_box: mb,
+        ..Default::default()
+    };
+    let Some(w) = choose_needle_word(words) else {
+        return ta;
+    };
+    ta.found = true;
+    ta.needle = w.text.trim().to_string();
+    ta.user_bounds = rect_device_top_left_to_user(
+        geom.rotate,
+        mb.urx - mb.llx,
+        mb.ury - mb.lly,
+        w.x_min,
+        w.y_min,
+        w.x_max,
+        w.y_max,
+    );
+    ta
 }
 
 /// Resolves a sample's anchor without PDFKit: page geometry from qpdf, the
 /// needle and its bounds from `pdftotext -bbox-layout`.
-pub fn find_text_anchor_poppler(_path: &str, _page: i64) -> Result<TextAnchor, String> {
-    todo!()
+pub fn find_text_anchor_poppler(path: &str, page: i64) -> Result<TextAnchor, String> {
+    let index = usize::try_from(page - 1)
+        .map_err(|_| format!("page {page} is not a 1-based page number"))?;
+    let (doc, _warning) = QpdfDoc::load(path)?;
+    let geom = doc.page_geometry(index)?;
+    let (_w, _h, words) = pdftotext_bbox_words(path, page)?;
+    Ok(anchor_from_words(&words, &geom))
 }
 
 #[cfg(test)]
