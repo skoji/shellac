@@ -8,6 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::cli::GateOpts;
 use crate::consts::C8_MAX_DELTA;
 use crate::encrypted::EncMode;
 use crate::exceptions::KnownExceptions;
@@ -125,6 +126,15 @@ impl GateOutcome {
     pub fn passed(&self) -> bool {
         self.unknown.is_empty()
     }
+}
+
+/// The `gate` subcommand: load both documents and judge. An `Err` here is a
+/// setup or IO problem (exit 1); the verdict's `passed()` separates exit 0
+/// from exit 3.
+pub fn run_gate(opts: &GateOpts) -> Result<GateOutcome, String> {
+    let fails = FailCells::load(&opts.fails)?;
+    let list = KnownExceptions::load(&opts.exceptions)?;
+    Ok(apply_exceptions(&fails.cells, &list))
 }
 
 /// Collects every failing cell of a matrix run.

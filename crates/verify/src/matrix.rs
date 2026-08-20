@@ -5,6 +5,10 @@ use std::path::Path;
 
 use crate::cli::MatrixOpts;
 use crate::engine::{CliEngine, SaveEngine};
+use crate::exceptions::KnownExceptions;
+use crate::gate::{
+    FailCell, FailCells, apply_exceptions, collect_fail_cells, render_gate_section, sanitize_cells,
+};
 use crate::ids::NmIds;
 use crate::proc::run;
 use crate::report::build_report;
@@ -54,12 +58,33 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
 
     let env_lines = env_versions(&eng);
     let sanitizer = build_sanitizer(opts);
-    let md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
+    let cells = sanitize_cells(&collect_fail_cells(&results), &sanitizer);
+    let mut md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
+    md.push_str(&gate_annotation(opts, &cells)?);
     // Final whole-document pass as a safety net for anything assembled
     // outside the per-field sanitization.
     std::fs::write(&opts.out, sanitizer.apply(&md)).map_err(|e| e.to_string())?;
     eprintln!("report written to {}", opts.out);
+
+    if !opts.fails_out.is_empty() {
+        FailCells::new(cells).write(&opts.fails_out)?;
+        eprintln!("failing cells written to {}", opts.fails_out);
+    }
     Ok(())
+}
+
+/// The report's gate section, or nothing when no list was supplied. The
+/// verdict is recorded here but never acted on: `matrix` reports, and
+/// `verify gate` is what turns a verdict into an exit status.
+fn gate_annotation(opts: &MatrixOpts, cells: &[FailCell]) -> Result<String, String> {
+    if opts.exceptions.is_empty() {
+        return Ok(String::new());
+    }
+    let list = KnownExceptions::load(&opts.exceptions)?;
+    Ok(format!(
+        "\n{}",
+        render_gate_section(&apply_exceptions(cells, &list))
+    ))
 }
 
 fn env_versions(eng: &dyn SaveEngine) -> String {
