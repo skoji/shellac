@@ -70,7 +70,11 @@ and accepted rather than treated as defects — for example a position check
 whose two measurement paths disagree about vertical Japanese text. Each
 entry names the samples, checks, and scenarios it covers and states why, so
 that tolerating an outcome is a reviewable decision in the repository rather
-than a special case buried in the harness.
+than a special case buried in the harness. Entries are matched one failing
+cell at a time, and failures that must not be excused by association carry
+check ids of their own — a save operation that failed, an incremental save
+that grew past the endurance limit — so that an entry written about one
+finding cannot absorb another.
 
 The list is what makes CI usable: `verify gate` matches a run's failing
 cells against it, and only an unmatched failure fails the build. A failed
