@@ -179,16 +179,84 @@ pub struct PageGeometry {
     pub rotate: i64,
 }
 
+/// Cap on how far `/Parent` is followed. The page tree is a tree in a
+/// well-formed file; the cap is what keeps a malformed one from looping.
+const MAX_PAGE_TREE_DEPTH: usize = 64;
+
 impl QpdfDoc {
     /// Number of pages in the document.
     pub fn page_count(&self) -> usize {
-        todo!()
+        self.root
+            .get("pages")
+            .and_then(|v| v.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0)
     }
 
     /// Geometry of one page (0-based), resolving `/MediaBox` and `/Rotate`
     /// through the page tree when the page itself does not carry them.
-    pub fn page_geometry(&self, _index: usize) -> Result<PageGeometry, String> {
-        todo!()
+    /// A missing `/Rotate` means 0; a `/MediaBox` that cannot be resolved is
+    /// an error, since every placement derives from it.
+    pub fn page_geometry(&self, index: usize) -> Result<PageGeometry, String> {
+        let pages = self
+            .root
+            .get("pages")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| "qpdf json has no pages array".to_string())?;
+        let page = pages.get(index).ok_or_else(|| {
+            format!(
+                "no page {} in qpdf json (document has {})",
+                index + 1,
+                pages.len()
+            )
+        })?;
+        let dict = page
+            .get("object")
+            .and_then(|v| v.as_str())
+            .and_then(|r| self.resolve_ref(r))
+            .ok_or_else(|| format!("page {} object is not in the object table", index + 1))?;
+        let media_box = self
+            .inherited(dict, "/MediaBox")
+            .and_then(|v| self.rect_value(v))
+            .ok_or_else(|| format!("page {} has no usable /MediaBox", index + 1))?;
+        let rotate = self
+            .inherited(dict, "/Rotate")
+            .and_then(|v| self.deref(v))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        Ok(PageGeometry { media_box, rotate })
+    }
+
+    /// The value of an inheritable page attribute, taken from the page or
+    /// the nearest ancestor that carries it.
+    fn inherited<'a>(&'a self, start: &'a Value, key: &str) -> Option<&'a Value> {
+        let mut node = start;
+        for _ in 0..MAX_PAGE_TREE_DEPTH {
+            if let Some(v) = node.get(key) {
+                return Some(v);
+            }
+            node = self.resolve_ref(node.get("/Parent")?.as_str()?)?;
+        }
+        None
+    }
+
+    /// A four-number rectangle, with its corners normalized: a `/MediaBox`
+    /// may legally be written with either corner first.
+    fn rect_value(&self, v: &Value) -> Option<crate::geom::Rect> {
+        let arr = self.deref(v)?.as_array()?;
+        if arr.len() != 4 {
+            return None;
+        }
+        let mut n = [0f64; 4];
+        for (slot, x) in n.iter_mut().zip(arr) {
+            *slot = self.deref(x)?.as_f64()?;
+        }
+        Some(crate::geom::Rect::new(
+            n[0].min(n[2]),
+            n[1].min(n[3]),
+            n[0].max(n[2]),
+            n[1].max(n[3]),
+        ))
     }
 }
 
