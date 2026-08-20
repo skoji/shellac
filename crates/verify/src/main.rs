@@ -12,6 +12,7 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Ok(cli::Command::Gate(_opts)) => todo!(),
         Err(msg) => {
             eprintln!("{msg}");
             ExitCode::from(2)

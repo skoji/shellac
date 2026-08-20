@@ -10,11 +10,26 @@ pub struct MatrixOpts {
     pub engine_cmd: String,
     pub nm_prefix: String,
     pub redact_nm_prefix: bool,
+    /// Run without the PDFKit helpers: C5/C7/C11b are not emitted and the
+    /// baseline is measured with qpdf and poppler instead.
+    pub no_pdfkit: bool,
+    /// Optional known-exception list; annotates the report with the gate
+    /// verdict. Does not affect the exit status.
+    pub exceptions: String,
+    /// Optional path for the machine-readable failing-cell document.
+    pub fails_out: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct GateOpts {
+    pub fails: String,
+    pub exceptions: String,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
     Matrix(MatrixOpts),
+    Gate(GateOpts),
 }
 
 pub const USAGE: &str =
@@ -103,6 +118,13 @@ mod tests {
         s.iter().map(|x| x.to_string()).collect()
     }
 
+    fn matrix_opts(args: &[String]) -> MatrixOpts {
+        match parse(args) {
+            Ok(Command::Matrix(o)) => o,
+            other => panic!("expected a matrix command, got {other:?}"),
+        }
+    }
+
     fn full_args() -> Vec<String> {
         argv(&[
             "matrix",
@@ -125,7 +147,7 @@ mod tests {
 
     #[test]
     fn parses_all_flags() {
-        let Command::Matrix(o) = parse(&full_args()).unwrap();
+        let o = matrix_opts(&full_args());
         assert_eq!(o.samples, "samples");
         assert_eq!(o.engine_cmd, "/x/engine");
         assert_eq!(o.nm_prefix, "test-verify");
@@ -136,8 +158,7 @@ mod tests {
     fn parses_redact_flag_and_equals_form() {
         let mut a = full_args();
         a.push("--redact-nm-prefix".to_string());
-        let Command::Matrix(o) = parse(&a).unwrap();
-        assert!(o.redact_nm_prefix);
+        assert!(matrix_opts(&a).redact_nm_prefix);
 
         let b = argv(&[
             "matrix",
@@ -149,8 +170,65 @@ mod tests {
             "--engine-cmd=e",
             "--nm-prefix=p",
         ]);
-        let Command::Matrix(o2) = parse(&b).unwrap();
-        assert_eq!(o2.scripts, "sc");
+        assert_eq!(matrix_opts(&b).scripts, "sc");
+    }
+
+    #[test]
+    fn matrix_gate_flags_default_to_absent() {
+        let o = matrix_opts(&full_args());
+        assert!(!o.no_pdfkit);
+        assert_eq!(o.exceptions, "");
+        assert_eq!(o.fails_out, "");
+    }
+
+    #[test]
+    fn parses_the_no_pdfkit_flag_and_the_gate_paths() {
+        let mut a = full_args();
+        a.push("--no-pdfkit".to_string());
+        a.push("--exceptions".to_string());
+        a.push("list.json".to_string());
+        a.push("--fails-out=fails.json".to_string());
+        let o = matrix_opts(&a);
+        assert!(o.no_pdfkit);
+        assert_eq!(o.exceptions, "list.json");
+        assert_eq!(o.fails_out, "fails.json");
+    }
+
+    #[test]
+    fn no_pdfkit_takes_no_value() {
+        let mut a = full_args();
+        a.push("--no-pdfkit=yes".to_string());
+        assert!(parse(&a).unwrap_err().contains("takes no value"));
+    }
+
+    #[test]
+    fn parses_the_gate_subcommand() {
+        let a = argv(&["gate", "--fails", "f.json", "--exceptions", "e.json"]);
+        assert_eq!(
+            parse(&a).unwrap(),
+            Command::Gate(GateOpts {
+                fails: "f.json".to_string(),
+                exceptions: "e.json".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn gate_reports_missing_and_unknown_flags() {
+        let missing = parse(&argv(&["gate", "--fails", "f.json"])).unwrap_err();
+        assert!(missing.contains("missing required flag(s)"));
+        assert!(missing.contains("--exceptions"));
+
+        let unknown = parse(&argv(&[
+            "gate",
+            "--fails",
+            "f.json",
+            "--exceptions",
+            "e.json",
+            "--bogus",
+        ]))
+        .unwrap_err();
+        assert!(unknown.contains("unknown flag"));
     }
 
     #[test]
