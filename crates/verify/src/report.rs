@@ -711,6 +711,23 @@ mod tests {
     }
 
     #[test]
+    fn baseline_facts_only_pdfkit_can_report_are_na_when_it_is_disabled() {
+        let mut r = base_sample();
+        r.base_size = 1234;
+        r.pages = 1;
+        r.pdfkit_disabled = true;
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
+        assert!(
+            md.contains(
+                "- existing annotation types: n/a (PDFKit helpers disabled) / thumbnails: n/a"
+            ),
+            "absent facts must not render as an empty list and a false thumbnail:\n{md}"
+        );
+        // The page count still comes from qpdf, so it is reported as usual.
+        assert!(md.contains("- size: 1234 bytes / pages: 1 / %%EOF: 0"));
+    }
+
+    #[test]
     fn report_fatal_sample_row() {
         let r = SampleResult {
             name: "S1".to_string(),

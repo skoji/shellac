@@ -33,6 +33,9 @@ pub struct SampleResult {
     pub base_exif_producer: String,
     pub base_annot_types: Vec<String>,
     pub base_thumb_ok: bool,
+    /// True when the run had no PDFKit helpers, so the baseline facts only
+    /// PDFKit can report are absent rather than negative.
+    pub pdfkit_disabled: bool,
     pub add: Scenario,
     pub modified: Scenario,
     pub modified_skipped: bool,
@@ -172,7 +175,7 @@ fn run_refused_sample(
 pub fn run_sample(
     sample_path: &Path,
     work_root: &str,
-    bins: &Bins,
+    bins: Option<&Bins>,
     eng: &dyn SaveEngine,
     ids: &NmIds,
 ) -> SampleResult {
@@ -199,7 +202,7 @@ pub fn run_sample(
     }
 
     let base_str = base.to_string_lossy().into_owned();
-    let base_state = match load_state(&base, &bins.pdfkit_text) {
+    let base_state = match load_state(&base, bins.map(|b| b.pdfkit_text.as_str())) {
         Ok(s) => s,
         Err(e) => {
             res.fatal_err = format!("baseline load: {e}");
@@ -208,7 +211,13 @@ pub fn run_sample(
     };
     res.base_size = base_state.data.len();
     res.base_eof = base_state.eof;
-    let (ck, _raw) = pdfkit_check(&bins.pdfkit_check, &base_str, 0, "", "");
+    let (ck, _raw) = pdfkit_check(
+        &bins.expect("pdfkit helpers").pdfkit_check,
+        &base_str,
+        0,
+        "",
+        "",
+    );
     let ck = match ck {
         Ok(c) => c,
         Err(e) => {
@@ -224,13 +233,14 @@ pub fn run_sample(
     res.base_exif_producer = exif;
 
     // Text anchor: resolved once per sample from the untouched baseline.
-    let mut anchor = match find_text_anchor(&bins.pdfkit_textbbox, &base_str, 1) {
-        Ok(a) => a,
-        Err(e) => {
-            res.anchor_err = e;
-            TextAnchor::default()
-        }
-    };
+    let mut anchor =
+        match find_text_anchor(&bins.expect("pdfkit helpers").pdfkit_textbbox, &base_str, 1) {
+            Ok(a) => a,
+            Err(e) => {
+                res.anchor_err = e;
+                TextAnchor::default()
+            }
+        };
     res.anchor = anchor.clone();
     if !res.anchor_err.is_empty() {
         anchor = TextAnchor::default();

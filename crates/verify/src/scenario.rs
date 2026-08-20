@@ -78,7 +78,7 @@ pub fn run_scenario(
     pages: i64,
     expect_present: &[String],
     expect_absent: &[String],
-    bins: &Bins,
+    bins: Option<&Bins>,
     anchor: &TextAnchor,
     pos_checks: &[PosCheck],
     c11b_id: Option<&str>,
@@ -94,7 +94,7 @@ pub fn run_scenario(
         .unwrap_or_default();
     eprintln!("    scenario {name}: {base_name}");
 
-    let cur = match load_state(Path::new(cur_path), &bins.pdfkit_text) {
+    let cur = match load_state(Path::new(cur_path), bins.map(|b| b.pdfkit_text.as_str())) {
         Ok(c) => c,
         Err(e) => {
             sc.fatal = format!("load state: {e}");
@@ -199,7 +199,7 @@ pub fn run_scenario(
         _ => (String::new(), String::new()),
     };
     let (ck, raw) = pdfkit_check(
-        &bins.pdfkit_check,
+        &bins.expect("pdfkit helpers").pdfkit_check,
         cur_path,
         pages,
         &needle_arg,
