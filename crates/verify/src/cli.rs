@@ -1,4 +1,4 @@
-//! Hand-rolled CLI parsing for the `matrix` subcommand.
+//! Hand-rolled CLI parsing for the `matrix` and `gate` subcommands.
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MatrixOpts {
@@ -34,7 +34,11 @@ pub enum Command {
 
 pub const USAGE: &str =
     "usage: verify matrix --samples <dir> --work <dir> --scripts <dir> --bin <dir> \
---out <path> --engine-cmd <path> --nm-prefix <str> [--redact-nm-prefix]
+--out <path> --engine-cmd <path> --nm-prefix <str> [--redact-nm-prefix] [--no-pdfkit] \
+[--exceptions <path>] [--fails-out <path>]
+       verify gate --fails <path> --exceptions <path>
+
+matrix — run the verification matrix over a sample corpus:
   --samples          directory containing sample PDFs (*.pdf)
   --work             working directory (PDF copies land here)
   --scripts          directory with the PDFKit helper Swift sources
@@ -42,28 +46,81 @@ pub const USAGE: &str =
   --out              output markdown path
   --engine-cmd       path to the save-engine CLI under test
   --nm-prefix        annotation id (/NM) prefix the engine emits
-  --redact-nm-prefix replace the nm prefix with <nm> in the report";
+  --redact-nm-prefix replace the nm prefix with <nm> in the report
+  --no-pdfkit        skip the PDFKit helpers: C5/C7/C11b are not emitted and
+                     the baseline is measured with qpdf and poppler instead
+  --exceptions       known-exception list; adds the gate verdict to the report
+  --fails-out        write the failing cells as JSON for `verify gate`
+
+gate — judge a matrix run's failing cells against the known-exception list:
+  --fails            failing-cell JSON written by `matrix --fails-out`
+  --exceptions       known-exception list
+  exit 0 = no unknown failures, 1 = IO error, 2 = usage, 3 = unknown failures";
 
 /// Parses command-line arguments (without the program name). Returns a
 /// usage error string for unknown/missing input; the caller exits 2.
 pub fn parse(args: &[String]) -> Result<Command, String> {
     let mut it = args.iter();
     match it.next().map(|s| s.as_str()) {
-        Some("matrix") => {}
-        Some(other) => return Err(format!("verify: unknown subcommand {other:?}\n{USAGE}")),
-        None => return Err(USAGE.to_string()),
+        Some("matrix") => parse_matrix(it),
+        Some("gate") => parse_gate(it),
+        Some(other) => Err(format!("verify: unknown subcommand {other:?}\n{USAGE}")),
+        None => Err(USAGE.to_string()),
     }
+}
+
+/// Splits `--flag=value` into its parts; a bare flag yields `None`.
+fn split_flag(arg: &str) -> (&str, Option<String>) {
+    match arg.split_once('=') {
+        Some((f, v)) => (f, Some(v.to_string())),
+        None => (arg, None),
+    }
+}
+
+/// Resolves a flag's value from either the inline form or the next argument.
+fn take_value<'a>(
+    sub: &str,
+    flag: &str,
+    inline: Option<String>,
+    it: &mut impl Iterator<Item = &'a String>,
+) -> Result<String, String> {
+    match inline {
+        Some(v) => Ok(v),
+        None => match it.next() {
+            Some(v) => Ok(v.clone()),
+            None => Err(format!("verify {sub}: {flag} requires a value\n{USAGE}")),
+        },
+    }
+}
+
+fn missing_flags(required: &[(&str, &String)]) -> Vec<String> {
+    required
+        .iter()
+        .filter(|(_, v)| v.is_empty())
+        .map(|(f, _)| (*f).to_string())
+        .collect()
+}
+
+fn missing_error(sub: &str, missing: &[String]) -> String {
+    format!(
+        "verify {sub}: missing required flag(s): {}\n{USAGE}",
+        missing.join(", ")
+    )
+}
+
+fn parse_matrix<'a>(mut it: impl Iterator<Item = &'a String>) -> Result<Command, String> {
     let mut opts = MatrixOpts::default();
     while let Some(arg) = it.next() {
-        let (flag, inline_value) = match arg.split_once('=') {
-            Some((f, v)) => (f, Some(v.to_string())),
-            None => (arg.as_str(), None),
-        };
-        if flag == "--redact-nm-prefix" {
+        let (flag, inline_value) = split_flag(arg);
+        if let Some(switch) = match flag {
+            "--redact-nm-prefix" => Some(&mut opts.redact_nm_prefix),
+            "--no-pdfkit" => Some(&mut opts.no_pdfkit),
+            _ => None,
+        } {
             if inline_value.is_some() {
                 return Err(format!("verify matrix: {flag} takes no value\n{USAGE}"));
             }
-            opts.redact_nm_prefix = true;
+            *switch = true;
             continue;
         }
         let slot = match flag {
@@ -74,20 +131,13 @@ pub fn parse(args: &[String]) -> Result<Command, String> {
             "--out" => &mut opts.out,
             "--engine-cmd" => &mut opts.engine_cmd,
             "--nm-prefix" => &mut opts.nm_prefix,
+            "--exceptions" => &mut opts.exceptions,
+            "--fails-out" => &mut opts.fails_out,
             _ => return Err(format!("verify matrix: unknown flag {flag:?}\n{USAGE}")),
         };
-        let value = match inline_value {
-            Some(v) => v,
-            None => match it.next() {
-                Some(v) => v.clone(),
-                None => {
-                    return Err(format!("verify matrix: {flag} requires a value\n{USAGE}"));
-                }
-            },
-        };
-        *slot = value;
+        *slot = take_value("matrix", flag, inline_value, &mut it)?;
     }
-    let required = [
+    let missing = missing_flags(&[
         ("--samples", &opts.samples),
         ("--work", &opts.work),
         ("--scripts", &opts.scripts),
@@ -95,19 +145,29 @@ pub fn parse(args: &[String]) -> Result<Command, String> {
         ("--out", &opts.out),
         ("--engine-cmd", &opts.engine_cmd),
         ("--nm-prefix", &opts.nm_prefix),
-    ];
-    let missing: Vec<&str> = required
-        .iter()
-        .filter(|(_, v)| v.is_empty())
-        .map(|(f, _)| *f)
-        .collect();
+    ]);
     if !missing.is_empty() {
-        return Err(format!(
-            "verify matrix: missing required flag(s): {}\n{USAGE}",
-            missing.join(", ")
-        ));
+        return Err(missing_error("matrix", &missing));
     }
     Ok(Command::Matrix(opts))
+}
+
+fn parse_gate<'a>(mut it: impl Iterator<Item = &'a String>) -> Result<Command, String> {
+    let mut opts = GateOpts::default();
+    while let Some(arg) = it.next() {
+        let (flag, inline_value) = split_flag(arg);
+        let slot = match flag {
+            "--fails" => &mut opts.fails,
+            "--exceptions" => &mut opts.exceptions,
+            _ => return Err(format!("verify gate: unknown flag {flag:?}\n{USAGE}")),
+        };
+        *slot = take_value("gate", flag, inline_value, &mut it)?;
+    }
+    let missing = missing_flags(&[("--fails", &opts.fails), ("--exceptions", &opts.exceptions)]);
+    if !missing.is_empty() {
+        return Err(missing_error("gate", &missing));
+    }
+    Ok(Command::Gate(opts))
 }
 
 #[cfg(test)]
