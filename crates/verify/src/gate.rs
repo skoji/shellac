@@ -57,6 +57,11 @@ const DETAIL_MAX: usize = 400;
 
 /// One failing (sample, check, scenario) triple with the detail the matrix
 /// recorded for it.
+///
+/// `check` is usually a check id from `CHECK_DEFS`, but the gate also mints
+/// ids of its own for failures no single check reports: `fatal`, and the
+/// `C8-*` pair above. Those ids are what a registry entry has to name, so a
+/// distinct id is what keeps a distinct failure separately excusable.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FailCell {
@@ -204,6 +209,12 @@ fn collect_scenario(sample: &str, sc: &Scenario, out: &mut Vec<FailCell>) {
 /// are reconstructed from the same facts `run_sample` aggregated. The walk
 /// mirrors that computation; if it ever fails to account for a C8 failure,
 /// the fallback below keeps the gate from passing a run the matrix failed.
+///
+/// The two halves of C8 are emitted under different check ids. An iteration
+/// with failing checks is `C8`, the id the registry entries were written
+/// against; an iteration that grew past the limit is `C8-delta` and the
+/// unattributable fallback is `C8-unattributed`, neither of which any entry
+/// names.
 fn collect_c8(r: &SampleResult, out: &mut Vec<FailCell>) {
     if r.enc_mode == EncMode::RefusedUnchanged || r.c8_pass {
         return;
@@ -222,7 +233,7 @@ fn collect_c8(r: &SampleResult, out: &mut Vec<FailCell>) {
         if delta >= C8_MAX_DELTA {
             out.push(FailCell::new(
                 &r.name,
-                "C8",
+                C8_DELTA_CHECK,
                 &sc.name,
                 format!("increment {delta} bytes >= {C8_MAX_DELTA}"),
             ));
@@ -241,7 +252,7 @@ fn collect_c8(r: &SampleResult, out: &mut Vec<FailCell>) {
     if out.len() == before {
         out.push(FailCell::new(
             &r.name,
-            "C8",
+            C8_UNATTRIBUTED_CHECK,
             LOOP_SCENARIO,
             r.c8_detail.clone(),
         ));
@@ -306,7 +317,10 @@ pub fn render_gate_section(outcome: &GateOutcome) -> String {
         "Every failing cell of this run, matched against `corpus/known-exceptions.json`. \
 A known cell is one the registry accepts, for the reason recorded there; an UNKNOWN cell is \
 what makes the run fail. Failures of a save operation itself are never matched against the \
-registry.\n\n",
+registry. The endurance aggregate reaches the registry under three ids — `C8` for an iteration \
+with failing checks, `C8-delta` for one that grew past the increment limit, `C8-unattributed` \
+for a C8 failure this reconstruction could not place — so that accepting one of them accepts \
+only that one.\n\n",
     );
     sb.push_str(&format!(
         "- failing cells: {} (known {}, unknown {})\n\n",
