@@ -26,6 +26,12 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
     std::fs::create_dir_all(&opts.work).map_err(|e| e.to_string())?;
 
     let bins = build_bins(opts)?;
+    // Loaded before the corpus run, not after it: a mistyped path or a
+    // malformed list should not cost a full matrix run to discover.
+    let exceptions = match opts.exceptions.as_str() {
+        "" => None,
+        path => Some(KnownExceptions::load(path)?),
+    };
 
     let mut pdfs: Vec<std::path::PathBuf> = std::fs::read_dir(&opts.samples)
         .map_err(|e| format!("reading samples dir {}: {}", opts.samples, e))?
@@ -56,7 +62,7 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
     let sanitizer = build_sanitizer(opts);
     let cells = sanitize_cells(&collect_fail_cells(&results), &sanitizer);
     let mut md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
-    md.push_str(&gate_annotation(opts, &cells)?);
+    md.push_str(&gate_annotation(exceptions.as_ref(), &cells));
     // Final whole-document pass as a safety net for anything assembled
     // outside the per-field sanitization.
     std::fs::write(&opts.out, sanitizer.apply(&md)).map_err(|e| e.to_string())?;
@@ -72,15 +78,11 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
 /// The report's gate section, or nothing when no list was supplied. The
 /// verdict is recorded here but never acted on: `matrix` reports, and
 /// `verify gate` is what turns a verdict into an exit status.
-fn gate_annotation(opts: &MatrixOpts, cells: &[FailCell]) -> Result<String, String> {
-    if opts.exceptions.is_empty() {
-        return Ok(String::new());
+fn gate_annotation(list: Option<&KnownExceptions>, cells: &[FailCell]) -> String {
+    match list {
+        None => String::new(),
+        Some(list) => format!("\n{}", render_gate_section(&apply_exceptions(cells, list))),
     }
-    let list = KnownExceptions::load(&opts.exceptions)?;
-    Ok(format!(
-        "\n{}",
-        render_gate_section(&apply_exceptions(cells, &list))
-    ))
 }
 
 /// Compiles the PDFKit helpers, or reports that this run has none. With
