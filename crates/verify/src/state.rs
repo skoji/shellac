@@ -33,14 +33,17 @@ pub fn pdfkit_text(bin: &str, path: &str) -> Result<String, String> {
     }
 }
 
-pub fn load_state(path: &Path, pdfkit_text_bin: &str) -> Result<FileState, String> {
+/// Measures one file. `pdfkit_text_bin` is `None` when the run has no
+/// PDFKit helpers: there is then no PDFKit text on either side of a
+/// comparison and C5 is not emitted at all.
+pub fn load_state(path: &Path, pdfkit_text_bin: Option<&str>) -> Result<FileState, String> {
     let data = std::fs::read(path).map_err(|e| e.to_string())?;
     let path_str = path.to_string_lossy();
     let ptext = match pdftotext(&path_str) {
         Ok(t) => t,
         Err(e) => format!("PDFTOTEXT-ERROR: {e}"),
     };
-    let ktext = match pdfkit_text(pdfkit_text_bin, &path_str) {
+    let ktext = match pdfkit_text(pdfkit_text_bin.unwrap_or_default(), &path_str) {
         Ok(t) => t,
         Err(e) => format!("PDFKIT-ERROR: {e}"),
     };
@@ -51,4 +54,25 @@ pub fn load_state(path: &Path, pdfkit_text_bin: &str) -> Result<FileState, Strin
         ptext,
         ktext,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn without_the_helper_there_is_no_pdfkit_text_to_compare() {
+        let dir = std::env::temp_dir().join(format!("verify-state-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("not-really.pdf");
+        std::fs::write(&p, b"%PDF-1.6\n%%EOF\n").unwrap();
+
+        let st = load_state(&p, None).unwrap();
+        assert_eq!(
+            st.ktext, "",
+            "an absent helper is not an extraction error: C5 must not see one"
+        );
+        assert_eq!(st.eof, 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
