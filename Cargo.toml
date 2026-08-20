@@ -1,7 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["crates/verify"]
+members = ["crates/shellac", "crates/verify"]
 
 [workspace.package]
 edition = "2024"
 license = "MIT"
+
+# No `[profile.release]` here on purpose, and `panic = "abort"` MUST NOT be
+# set at the workspace level either.
+#
+# The shellac crate exposes a C ABI and wraps every FFI entry point in
+# `std::panic::catch_unwind`. That wrapper is the only thing that stops a Rust
+# panic from unwinding across the FFI boundary into the calling application,
+# which is undefined behavior. `panic = "abort"` disables `catch_unwind`, so
+# setting it -- here or in the crate -- would silently remove that guarantee
+# and turn any panic into a host-process abort.
