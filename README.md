@@ -124,8 +124,12 @@ be set on any profile — see the comment in the workspace `Cargo.toml`.
 
 ## Using it
 
-**As a Rust library.** `shellac::ops::apply_ops(path, batch)` is the whole
-API surface; it returns an `ApplyResult`.
+**As a Rust library.** `shellac::ops::apply_ops(path, batch)` is the entry
+point; it returns an `ApplyResult`. `shellac::ops` also carries the wire
+types (`OpsBatch`, `AnnotationOp`, `UserRect`, `UserPoint`, `ApplyResult`,
+`Status`, `SkipReason`), `shellac::transform` the coordinate contract and
+its rotated-page-space conversions, and `shellac::annots` the annotation
+dictionary and incremental-save helpers the engine is built from.
 
 ```toml
 [dependencies]
