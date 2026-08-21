@@ -3,14 +3,15 @@
 # directory: the generated samples plus the committed fixtures.
 #
 # The matrix takes a single samples directory, but the corpus arrives from
-# two places. Six samples are built by the generators (see
+# two places: six samples are built by the generators (see
 # check-generated-samples.sh) and five are committed under corpus/fixtures.
-# Naming the committed ones here, rather than relying on whatever a
-# generator happened to leave behind in its work directory, is the point of
-# this script: S1 is the input every generator except S3 derives from, so it
-# turns up in the generated directory as a by-product, and a corpus that
-# depends on that by-product loses a sample the day the generators stop
-# needing a copy of it.
+# Both sets are named here rather than globbed, which is the point of this
+# script. A glob over the generated directory would have taken S1 -- the
+# input every generator except S3 derives from, and a copy of it is left
+# behind there -- as though it were generated output, and would have gone
+# on succeeding while a generator quietly stopped producing something. What
+# the corpus consists of is a decision, so it is written down and checked
+# rather than inferred from a directory listing.
 #
 # The two directories are kept apart -- CI caches the generated one, and the
 # committed fixtures are tens of megabytes that come from the checkout on
@@ -37,9 +38,19 @@ ci_init "assemble-samples"
 repo_root="${script_dir}/../.."
 fixtures_dir="${repo_root}/corpus/fixtures"
 
-# The committed corpus fixtures. The one list; both CI jobs reach it through
-# this script.
-COMMITTED_FIXTURES=(S1 S2 S4 S5 S7)
+# What the corpus is, by name. The one list; both CI jobs reach it through
+# this script. The generated names are the ones the generators actually
+# write, so a rename there fails here rather than silently shrinking the
+# corpus the matrix runs over.
+GENERATED_SAMPLES=(
+    S3.pdf
+    S8.pdf
+    S9-rc4-empty-user.pdf
+    S10-aes256-empty-user.pdf
+    S11-password-required.pdf
+    S12-annotations-restricted.pdf
+)
+COMMITTED_FIXTURES=(S1.pdf S2.pdf S4.pdf S5.pdf S7.pdf)
 
 generated="$1"
 samples="$2"
@@ -55,29 +66,45 @@ fi
 
 mkdir -p "${samples}"
 
-# Generated first, committed second: the generators work on a copy of S1, so
-# whatever the work directory holds under that name is overwritten here by
-# the fixture that is under version control.
-cp "${generated}/"*.pdf "${samples}/"
+# Check the generated set before copying anything. `cp` of a name that is
+# not there aborts the script under `set -e` with the shell's own wording,
+# which names one file and stops; collecting the whole list first says which
+# generator did not run.
+for name in "${GENERATED_SAMPLES[@]}"; do
+    if [ ! -f "${generated}/${name}" ]; then
+        ci_fail "generated sample not in ${generated}: ${name}"
+    fi
+done
 for name in "${COMMITTED_FIXTURES[@]}"; do
-    ci_require_file "${fixtures_dir}/${name}.pdf"
-    cp "${fixtures_dir}/${name}.pdf" "${samples}/${name}.pdf"
+    if [ ! -f "${fixtures_dir}/${name}" ]; then
+        ci_fail "committed fixture not in ${fixtures_dir}: ${name}"
+    fi
+done
+if [ "${ci_failures}" -ne 0 ]; then
+    ci_finish
+fi
+
+for name in "${GENERATED_SAMPLES[@]}"; do
+    cp "${generated}/${name}" "${samples}/${name}"
+done
+for name in "${COMMITTED_FIXTURES[@]}"; do
+    cp "${fixtures_dir}/${name}" "${samples}/${name}"
 done
 
-for name in "${COMMITTED_FIXTURES[@]}"; do
-    if [ -f "${samples}/${name}.pdf" ]; then
-        ci_pass "committed fixture in place: ${name}.pdf"
+for name in "${GENERATED_SAMPLES[@]}" "${COMMITTED_FIXTURES[@]}"; do
+    if [ -f "${samples}/${name}" ]; then
+        ci_pass "in place: ${name}"
     else
-        ci_fail "committed fixture missing from ${samples}: ${name}.pdf"
+        ci_fail "did not reach ${samples}: ${name}"
     fi
 done
 
+# An exact count, not a lower bound: a samples directory reused across runs
+# can hold a PDF from an older corpus, and the matrix would run over it as
+# if it belonged.
+expected_count=$((${#GENERATED_SAMPLES[@]} + ${#COMMITTED_FIXTURES[@]}))
 { ls "${samples}"/*.pdf || true; } | wc -l > "${CI_TMP}/sample-count.txt"
 read -r sample_count < "${CI_TMP}/sample-count.txt"
-if [ "${sample_count}" -gt "${#COMMITTED_FIXTURES[@]}" ]; then
-    ci_pass "assembled ${sample_count} samples in ${samples}"
-else
-    ci_fail "no generated samples reached ${samples} (${sample_count} files total)"
-fi
+ci_expect_eq "PDFs in ${samples}" "${expected_count}" "${sample_count}"
 
 ci_finish
