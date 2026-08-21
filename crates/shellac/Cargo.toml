@@ -5,6 +5,12 @@ version = "0.1.0"
 # uses the pre-2024 `#[no_mangle]` / `unsafe extern` forms. Moving to 2024 is
 # a separate, reviewable change.
 edition = "2021"
+# Minimum supported Rust version. 1.87 is what this crate itself needs
+# (`usize::is_multiple_of`); lopdf 0.44 declares 1.88, and cargo refuses to
+# build a package whose dependency asks for more than the running compiler,
+# so 1.88 is the honest floor. Not exercised by a build here -- the pinned
+# toolchain is newer -- so treat it as derived, not measured.
+rust-version = "1.88"
 license.workspace = true
 description = "Incremental-save PDF annotation engine: appends annotation edits as one incremental update, leaving the original bytes untouched"
 repository = "https://github.com/skoji/shellac"
