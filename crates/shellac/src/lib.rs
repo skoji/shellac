@@ -7,8 +7,7 @@
 //! everything it did not touch survives byte-for-byte.
 //!
 //! The crate is usable both as a Rust library and, through the C ABI below,
-//! as a static library linked into a host application (that is how the iOS
-//! reader app this engine was extracted from consumes it).
+//! as a static library linked into a host application.
 //!
 //! # FFI contract
 //!

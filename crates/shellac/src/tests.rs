@@ -356,12 +356,12 @@ fn c6_add_then_remove_by_nm() {
 }
 
 // ---------------------------------------------------------------------------
-// Wire-format compatibility: the pre-rename `shelff_id` key
+// Wire-format compatibility: the `shelff_id` alias for `annot_id`
 // ---------------------------------------------------------------------------
 
-/// The identity field was named `shelff_id` before this engine was extracted
-/// into its own crate, and `#[serde(alias = "shelff_id")]` keeps that spelling
-/// accepted so an existing caller can migrate its writer independently.
+/// `#[serde(alias = "shelff_id")]` makes the identity field readable under a
+/// second key, so a writer that emits either one is understood and can change
+/// which it emits independently of this crate.
 ///
 /// Each op type is checked twice over. The written files must be
 /// **byte-identical** between the two spellings — nothing this crate emits is

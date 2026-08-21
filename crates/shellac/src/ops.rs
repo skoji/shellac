@@ -140,10 +140,10 @@ impl UserRect {
 /// JSON: `add`, `remove`, `modify_comment`).
 ///
 /// `annot_id` is the caller's stable identity for an annotation and is
-/// written to / matched against the annotation's `/NM` entry. It was named
-/// `shelff_id` in the engine's pre-extraction form; the old spelling stays
-/// accepted as a deserialization alias so a caller can migrate its writer
-/// without a flag day. New callers should emit `annot_id`.
+/// written to / matched against the annotation's `/NM` entry. `shelff_id` is
+/// accepted as a deserialization alias for it, so a writer that emits the
+/// alternative key keeps working without a flag day. New callers should emit
+/// `annot_id`.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AnnotationOp {
