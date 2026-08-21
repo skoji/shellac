@@ -234,10 +234,17 @@ pub unsafe extern "C" fn shellac_can_open(path: *const c_char) -> i32 {
 /// [`shellac_apply_ops`], and must not be freed twice.
 #[no_mangle]
 pub unsafe extern "C" fn shellac_free_string(ptr: *mut c_char) {
-    if ptr.is_null() {
-        return;
-    }
-    let _ = CString::from_raw(ptr);
+    // Wrapped like the other two entry points. Not because dropping a
+    // `CString` is expected to unwind, but because "no panic crosses this
+    // boundary" is only a guarantee the caller can rely on if it holds for
+    // every symbol the header declares -- an exception nobody documented is
+    // indistinguishable from an oversight.
+    let _ = panic::catch_unwind(AssertUnwindSafe(|| {
+        if ptr.is_null() {
+            return;
+        }
+        drop(CString::from_raw(ptr));
+    }));
 }
 
 #[cfg(test)]
