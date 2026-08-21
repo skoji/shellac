@@ -38,7 +38,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [build-dependencies]
-cbindgen = "0.27"
+cbindgen = { version = "0.27", default-features = false }
 
 # Note: the release profile is intentionally left at cargo defaults, both here
 # and at the workspace root. `panic = "abort"` MUST NOT be set — see the
