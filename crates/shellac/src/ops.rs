@@ -12,19 +12,35 @@
 //! MediaBox-absolute, y-up, unrotated space that PDF files store in
 //! `/Rect`, and the space Apple's PDFKit reports through
 //! `PDFSelection.bounds(for:)` / `PDFAnnotation.bounds` (verified on
-//! device and on macOS; see `crate::transform`). The engine writes them
-//! verbatim into `/Rect` / `/QuadPoints` and passes them straight to the
-//! `/Rect contains(point)` fallback resolver — no rotation transform is
-//! applied here.
+//! device and on macOS; see `crate::transform`). No coordinate-space
+//! conversion happens anywhere in this module.
+//!
+//! Where each field goes differs, though:
+//!
+//! * `rect` is written into the annotation's `/Rect`, as given.
+//! * `quad_points` is written into `/QuadPoints`, as given, with one
+//!   exception: a `Highlight` quad taller than it is wide is written as
+//!   the four corners of that quad's axis-aligned bounding box, in
+//!   Acrobat's `[BL, TL, BR, TR]` order. For the axis-aligned quads
+//!   callers normally send that is a reordering of the same four points;
+//!   for a tilted quad it substitutes the enclosing box, so the emitted
+//!   coordinate pairs need not appear in the input at all. Wide quads and
+//!   the other markup subtypes are written as given. The normalization
+//!   itself lives in [`crate::annots`], which documents why Acrobat needs
+//!   it.
+//! * `user_point` is never written to the file. It resolves the target of
+//!   a `remove` / `modify_comment` when `/NM` does not match, by testing
+//!   which annotation's `/Rect` contains it, and nothing else.
 //!
 //! # Semantics
 //!
 //! * `add`: the engine checks these conditions **in this order** (matching
 //!   the implementation in `apply_ops`):
 //!     1. `add_page_not_found` if `page_index` is out of range for the doc.
-//!     2. `add_duplicate_nm` if an annotation with the same `/NM` already
-//!        exists in `prev` **or** was queued in an earlier op of this same
-//!        batch.
+//!     2. `add_duplicate_nm` if an annotation with the same `/NM` is
+//!        already on **that page** in `prev`, or was queued for that page
+//!        by an earlier op of this same batch. Both tests are per page:
+//!        the same `/NM` on two different pages is not a duplicate.
 //!     3. Otherwise a new annotation object is created, added to
 //!        `new_document`, and its ref appended to the page's `/Annots`.
 //!
@@ -70,9 +86,9 @@
 //! # Batch semantics (out of scope in this crate)
 //!
 //! This engine applies ops **in the order given** with two intra-batch
-//! effects only: `add` deduplication (against previously-queued adds in
-//! this batch) and last-write-wins for `modify_comment` at the same
-//! `ObjectId`. It does NOT coalesce cross-op interactions such as
+//! effects only: `add` deduplication (against adds queued earlier in this
+//! batch for the same page) and last-write-wins for `modify_comment` at
+//! the same `ObjectId`. It does NOT coalesce cross-op interactions such as
 //! `remove → add` of the same `/NM`, `add → remove`, or double `remove`.
 //! Producing a coalesced batch is the caller's responsibility.
 
@@ -140,10 +156,10 @@ impl UserRect {
 /// JSON: `add`, `remove`, `modify_comment`).
 ///
 /// `annot_id` is the caller's stable identity for an annotation and is
-/// written to / matched against the annotation's `/NM` entry. It was named
-/// `shelff_id` in the engine's pre-extraction form; the old spelling stays
-/// accepted as a deserialization alias so a caller can migrate its writer
-/// without a flag day. New callers should emit `annot_id`.
+/// written to / matched against the annotation's `/NM` entry. `shelff_id` is
+/// accepted as a deserialization alias for it, so a writer that emits the
+/// alternative key keeps working without a flag day. New callers should emit
+/// `annot_id`.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AnnotationOp {
@@ -226,8 +242,8 @@ pub enum Status {
 pub enum SkipReason {
     /// `add` op targeted a `page_index` beyond the document's page count.
     AddPageNotFound,
-    /// `add` op's `/NM` collides with an existing annotation (in `prev`
-    /// or earlier in this batch).
+    /// `add` op's `/NM` collides with another annotation on the same page
+    /// (already in `prev`, or queued earlier in this batch).
     AddDuplicateNm,
     /// `remove` op targeted a `page_index` beyond the document's page count.
     RemovePageNotFound,
@@ -405,8 +421,10 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                     continue;
                 }
 
-                // Rect / quad_points are already in raw user space per this
-                // engine's coordinate contract — write them verbatim.
+                // No coordinate-space conversion: rect / quad_points arrive
+                // in raw user space per this engine's contract. The one
+                // /QuadPoints normalization — the bounding box a vertical
+                // Highlight quad becomes — belongs to `annots`, not here.
                 let user_rect = rect.into_user_space_rect();
                 let user_quads: Option<Vec<UserSpacePoint>> = quad_points.map(|pts| {
                     pts.iter()

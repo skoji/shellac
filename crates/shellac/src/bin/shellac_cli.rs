@@ -144,8 +144,10 @@ fn rect_flag(args: &[String], flag: &str, default: Rect) -> Rect {
 /// quad is 4 (x, y) points in TL, TR, BL, BR order = 8 comma-separated
 /// floats. Returns the flattened `Vec<[f64; 2]>` that
 /// `AnnotationOp::Add.quad_points` expects. The engine writes those points
-/// verbatim into /QuadPoints in the order given, which is what makes the
-/// per-line marker scenario reproducible.
+/// into /QuadPoints in the order given — except for a Highlight quad
+/// taller than it is wide, which it normalizes to the quad's bounding box
+/// in Acrobat's order — so what the scenario passes here determines what
+/// lands in the file, which is what makes it reproducible.
 fn parse_quads(s: &str) -> Option<Vec<[f64; 2]>> {
     let quads: Vec<&str> = s.split(';').filter(|q| !q.trim().is_empty()).collect();
     if quads.is_empty() {
@@ -275,7 +277,9 @@ fn build_modify_op(index: u32, id: &str, subtype: &str, new_comment: &str) -> An
 /// rectangles (the per-line marker case). `/Rect` is
 /// derived as the bbox of all quads so PDF viewers that fall back to /Rect
 /// (no /QuadPoints support) still show something reasonable, and `apply_ops`
-/// writes the quads verbatim in the given order into /QuadPoints.
+/// writes the quads into /QuadPoints in the given order — a Highlight quad
+/// taller than it is wide excepted, which it normalizes to that quad's
+/// bounding box in Acrobat's order.
 fn build_add_op_with_quads(
     index: u32,
     id: &str,

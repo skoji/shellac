@@ -2,13 +2,32 @@
 name = "shellac"
 version = "0.1.0"
 # Deliberately not on the workspace's 2024 edition: this crate's FFI surface
-# uses the pre-2024 `#[no_mangle]` / `unsafe extern` forms, and the port keeps
-# the sources comparable against their origin. Moving to 2024 is a separate,
-# reviewable change.
+# uses the pre-2024 `#[no_mangle]` / `unsafe extern` forms. Moving to 2024 is
+# a separate, reviewable change.
 edition = "2021"
+# Minimum supported Rust version. 1.87 is what this crate itself needs
+# (`usize::is_multiple_of`); lopdf 0.44 declares 1.88, and cargo refuses to
+# build a package whose dependency asks for more than the running compiler,
+# so 1.88 is the honest floor. Not exercised by a build here -- the pinned
+# toolchain is newer -- so treat it as derived, not measured.
+rust-version = "1.88"
 license.workspace = true
-publish = false
-description = "lopdf-based incremental PDF annotation save engine"
+description = "Incremental-save PDF annotation engine: appends annotation edits as one incremental update, leaving the original bytes untouched"
+repository = "https://github.com/skoji/shellac"
+readme = "README.md"
+keywords = ["pdf", "annotations", "incremental-save", "lopdf", "ffi"]
+categories = ["text-processing"]
+# The package is the engine and nothing else. The corpus, the harness and the
+# CI scripts are how it is verified, not what a consumer links against, and
+# the corpus alone is tens of megabytes of PDF.
+include = [
+    "src/**",
+    "build.rs",
+    "cbindgen.toml",
+    "include/shellac.h",
+    "README.md",
+    "LICENSE",
+]
 
 [lib]
 name = "shellac"
@@ -25,7 +44,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [build-dependencies]
-cbindgen = "0.27"
+cbindgen = { version = "0.27", default-features = false }
 
 # Note: the release profile is intentionally left at cargo defaults, both here
 # and at the workspace root. `panic = "abort"` MUST NOT be set — see the

@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cli::GateOpts;
-use crate::consts::C8_MAX_DELTA;
+use crate::consts::{C8_MAX_DELTA, LOOP_ITERATIONS};
 use crate::encrypted::EncMode;
 use crate::exceptions::KnownExceptions;
 use crate::sample::SampleResult;
@@ -239,14 +239,17 @@ fn collect_c8(r: &SampleResult, out: &mut Vec<FailCell>) {
             ));
         }
     }
-    if r.loop_scenarios.len() < 10 {
+    if r.loop_scenarios.len() < LOOP_ITERATIONS {
         // A loop that stopped early means a save operation failed, which no
         // `loop-*` entry should be able to excuse.
         out.push(FailCell::new(
             &r.name,
             FATAL_CHECK,
             LOOP_SCENARIO,
-            format!("only {}/10 iterations completed", r.loop_scenarios.len()),
+            format!(
+                "only {}/{LOOP_ITERATIONS} iterations completed",
+                r.loop_scenarios.len()
+            ),
         ));
     }
     if out.len() == before {

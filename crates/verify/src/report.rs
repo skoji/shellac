@@ -1,7 +1,7 @@
 //! Matrix report generation: the summary matrix with its data-driven
 //! legend, per-sample scenario tables, and the encrypted-fixture section.
 
-use crate::consts::{CELL_VOCAB_NOTE, CHECK_DEFS};
+use crate::consts::{CELL_VOCAB_NOTE, CHECK_DEFS, LOOP_ITERATIONS};
 use crate::encrypted::EncMode;
 use crate::sample::SampleResult;
 use crate::sanitize::Sanitizer;
@@ -31,7 +31,7 @@ pub fn encrypted_column(r: &SampleResult) -> String {
             }
         }
         EncMode::RoundtripPass => {
-            if r.loop_scenarios.len() < 10 {
+            if r.loop_scenarios.len() < LOOP_ITERATIONS {
                 return "**FAIL**".to_string();
             }
             let mut slots: Vec<(&Scenario, bool)> = vec![
@@ -351,7 +351,9 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
         }
         scenario_section(&mut sb, &r.removed, san);
 
-        sb.push_str("### loop (10 incremental saves)\n\n");
+        sb.push_str(&format!(
+            "### loop ({LOOP_ITERATIONS} incremental saves)\n\n"
+        ));
         sb.push_str(&format!(
             "C8: {} — {}\n\n",
             mark(r.c8_pass),

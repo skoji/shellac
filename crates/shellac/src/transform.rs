@@ -19,10 +19,17 @@
 //! [`crate::ops::apply_ops`] therefore treats its input `rect`,
 //! `quad_points`, and `user_point` fields as **default user space**
 //! directly — the same coordinate space the PDF file itself stores in
-//! `/Rect` — and writes them verbatim into `/Rect` / `/QuadPoints` (and
-//! feeds them straight to the `/Rect contains(point)` fallback). A caller
-//! plumbing PDFKit-observed rectangles into `apply_ops` passes them through
-//! as-is; no page-space→user-space transform is needed on either side.
+//! `/Rect` — and applies no coordinate-space conversion of its own. `rect`
+//! goes into the annotation's `/Rect` and `quad_points` into
+//! `/QuadPoints`; `user_point` is not written to the file at all, serving
+//! only the `/Rect contains(point)` lookup that resolves a `remove` /
+//! `modify_comment` target. A caller plumbing PDFKit-observed rectangles
+//! into `apply_ops` passes them through as-is; no page-space→user-space
+//! transform is needed on either side.
+//!
+//! `/QuadPoints` carries one normalization that is not a coordinate-space
+//! conversion: a vertical `Highlight` quad is written as its axis-aligned
+//! bounding box in the order Acrobat expects. See [`crate::ops`].
 //!
 //! # When [`rect_page_space_to_user`] / [`page_space_to_user`] are still useful
 //!
@@ -62,11 +69,10 @@
 //!     - Extents: `(dw, dh) = rotated_dims(rotate, uw, uh)` — width and
 //!       height swap for /Rotate ∈ {90, 270}.
 //!
-//!   This used to be labeled "page space (PDFKit-shaped)". That label was
-//!   misleading: PDFKit's bounds getters do not return this space (see the
-//!   note above). The formulas themselves are correct for
-//!   rotated-display-frame inputs, so callers with such inputs still route
-//!   through [`rect_page_space_to_user`].
+//!   PDFKit's bounds getters do not return this space — see the note
+//!   above — so a rectangle is in it only if the caller built it in a
+//!   `/Rotate`-applied display frame. The formulas below are correct for
+//!   those inputs, which is what [`rect_page_space_to_user`] is for.
 //!
 //! # Transformations
 //!
@@ -88,12 +94,13 @@
 //! axis-aligned bounding box.
 //!
 //! `/Rotate` is a multiple of 90 but may be negative or exceed a full turn,
-//! so it is reduced into `[0, 360)` first — see [`norm_rotate`].
+//! so it is reduced into `[0, 360)` first — see `norm_rotate`.
 //!
-//! The formulas generalize an earlier verification harness that only ever
-//! exercised MediaBox origin `(0, 0)` and therefore did not need the offset
-//! terms above; the offsets were added in review precisely because
-//! origin-anchored MediaBoxes are the exception, not the rule.
+//! The three non-identity rotations carry `mx0` / `my0` terms rather than
+//! assuming a MediaBox anchored at the origin. `/Rotate 0` needs none: both
+//! spaces are MediaBox-absolute, so an unrotated point is already its own
+//! answer. See the `/MediaBox` note above for why an origin-anchored
+//! MediaBox is not the case to design around.
 
 /// An axis-aligned rectangle in some coordinate space: `(llx, lly, urx, ury)`,
 /// y-up, bottom-left origin. Concrete space is imposed by the wrapping
@@ -227,10 +234,12 @@ pub fn rect_page_space_to_user(rotate: i32, mb: UserSpaceRect, r: PageSpaceRect)
 }
 
 // Fixed-arity min/max over the four rotated corners. Named component
-// helpers rather than an iterator-based fold because the input is always a
-// `[UserSpacePoint; 4]` — no runtime length variance to guard against. An
-// earlier version folded over a slice and carried an `.expect("unreachable")`
-// for the empty case; that "unreachable" path was itself the smell.
+// helpers rather than an iterator chain because the input is always a
+// `[UserSpacePoint; 4]` — no runtime length variance to guard against.
+// `min_by` / `max_by` over a slice return `Option`, so that shape would
+// need an `.expect("unreachable")` for an empty case this type cannot
+// produce, and an unreachable path is worth not writing rather than worth
+// explaining.
 
 fn min_max_x(corners: &[UserSpacePoint; 4]) -> (f64, f64) {
     let mut lo = corners[0].x;

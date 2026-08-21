@@ -176,7 +176,7 @@ fn quad_points_for_subtype(pts: &[UserSpacePoint], subtype: &str) -> Object {
         let w = urx - llx;
         let h = ury - lly;
         if h > w {
-            // Vertical quad — reorder to Acrobat's [BL, TL, BR, TR].
+            // Vertical quad — emit the bbox corners in Acrobat's [BL, TL, BR, TR].
             arr.push(Object::Real(llx as f32));
             arr.push(Object::Real(lly as f32));
             arr.push(Object::Real(llx as f32));
@@ -338,7 +338,9 @@ pub fn build_highlight_ap_stream(
 /// Build a text-markup annotation dictionary (Highlight, Underline, Text, ...).
 /// Includes /QuadPoints for the text-markup subtypes that take them;
 /// pass `explicit_quads = Some(...)` to override the default
-/// rect-derived quad ordering.
+/// rect-derived quad ordering. Explicit quads route through
+/// `quad_points_for_subtype`, so a vertical Highlight quad is emitted as
+/// its bounding box rather than as the points handed in.
 pub fn text_markup_dict(
     subtype: &str,
     id: &str,

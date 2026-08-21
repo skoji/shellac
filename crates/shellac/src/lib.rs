@@ -7,8 +7,7 @@
 //! everything it did not touch survives byte-for-byte.
 //!
 //! The crate is usable both as a Rust library and, through the C ABI below,
-//! as a static library linked into a host application (that is how the iOS
-//! reader app this engine was extracted from consumes it).
+//! as a static library linked into a host application.
 //!
 //! # FFI contract
 //!
@@ -26,13 +25,15 @@
 //!   [`ops::AnnotationOp`]), and — if any op mutated the document — writes
 //!   one incremental update back to `path` via `tmp file + rename`. Returns
 //!   a heap-allocated NUL-terminated C string containing the JSON-encoded
-//!   [`ops::ApplyResult`]. On invalid inputs (null pointers, non-UTF-8 path,
-//!   malformed ops_json) it returns `NULL`. The caller MUST free the
-//!   returned pointer with `shellac_free_string`.
+//!   [`ops::ApplyResult`]. The caller MUST free the returned pointer with
+//!   `shellac_free_string`.
 //!
-//!   Even a lopdf parse failure or IO error yields a well-formed
-//!   `ApplyResult` (with `status: parse_failed` or `status: io_failed`);
-//!   `NULL` is reserved for invalid-argument cases only.
+//!   `NULL` is returned when no `ApplyResult` could be produced or handed
+//!   back: an invalid argument (null pointer, non-UTF-8 path), malformed
+//!   `ops_json`, a panic caught at the boundary, or a result that failed to
+//!   serialize. A lopdf parse failure or an IO error is not one of those —
+//!   each yields a well-formed `ApplyResult` carrying
+//!   `status: parse_failed` or `status: io_failed`.
 //!
 //! * `shellac_can_open(path)` tries to parse the PDF (filtered load).
 //!   Returns:
@@ -235,10 +236,17 @@ pub unsafe extern "C" fn shellac_can_open(path: *const c_char) -> i32 {
 /// [`shellac_apply_ops`], and must not be freed twice.
 #[no_mangle]
 pub unsafe extern "C" fn shellac_free_string(ptr: *mut c_char) {
-    if ptr.is_null() {
-        return;
-    }
-    let _ = CString::from_raw(ptr);
+    // Wrapped like the other two entry points. Not because dropping a
+    // `CString` is expected to unwind, but because "no panic crosses this
+    // boundary" is only a guarantee the caller can rely on if it holds for
+    // every symbol the header declares -- an exception nobody documented is
+    // indistinguishable from an oversight.
+    let _ = panic::catch_unwind(AssertUnwindSafe(|| {
+        if ptr.is_null() {
+            return;
+        }
+        drop(CString::from_raw(ptr));
+    }));
 }
 
 #[cfg(test)]

@@ -10,10 +10,18 @@ fn main() {
     println!("cargo:rerun-if-changed=cbindgen.toml");
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=SHELLAC_SKIP_CBINDGEN");
+    println!("cargo:rerun-if-env-changed=DOCS_RS");
 
     // Escape hatch: CI or downstream builds that only need to compile the
     // staticlib and already have a checked-in header can skip cbindgen.
     if env::var_os("SHELLAC_SKIP_CBINDGEN").is_some() {
+        return;
+    }
+
+    // docs.rs builds in a sandbox whose source directory is read-only, and a
+    // build script that writes into it fails the build. The header is not
+    // part of the documentation anyway.
+    if env::var_os("DOCS_RS").is_some() {
         return;
     }
 

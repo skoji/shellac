@@ -356,12 +356,12 @@ fn c6_add_then_remove_by_nm() {
 }
 
 // ---------------------------------------------------------------------------
-// Wire-format compatibility: the pre-rename `shelff_id` key
+// Wire-format compatibility: the `shelff_id` alias for `annot_id`
 // ---------------------------------------------------------------------------
 
-/// The identity field was named `shelff_id` before this engine was extracted
-/// into its own crate, and `#[serde(alias = "shelff_id")]` keeps that spelling
-/// accepted so an existing caller can migrate its writer independently.
+/// `#[serde(alias = "shelff_id")]` makes the identity field readable under a
+/// second key, so a writer that emits either one is understood and can change
+/// which it emits independently of this crate.
 ///
 /// Each op type is checked twice over. The written files must be
 /// **byte-identical** between the two spellings — nothing this crate emits is
@@ -2037,4 +2037,31 @@ fn s502_highlight_ap_survives_encrypted_incremental_roundtrip() {
         "AP content stream must decrypt to the expected commands"
     );
     assert_eq!(count_substring(&content, b" re "), 1);
+}
+
+// shellac_free_string is the third FFI entry point, and the only one with
+// no return value to carry a failure. What is checkable about it is the
+// round-trip: a pointer handed out by shellac_apply_ops goes back through
+// it, and NULL is accepted.
+#[test]
+fn free_string_accepts_null_and_a_pointer_from_apply_ops() {
+    unsafe { crate::shellac_free_string(std::ptr::null_mut()) };
+
+    let dir = std::env::temp_dir().join(format!("shellac-free-string-test-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("fixture.pdf");
+    fs::write(&path, make_fixture_pdf(AnnotsShape::DirectArray, 0, None)).unwrap();
+
+    let c_path = CString::new(path.to_string_lossy().as_bytes()).unwrap();
+    let c_ops = CString::new(r#"{"ops":[]}"#).unwrap();
+    let out = unsafe { crate::shellac_apply_ops(c_path.as_ptr(), c_ops.as_ptr()) };
+    assert!(!out.is_null(), "a well-formed batch must not return NULL");
+    let json = unsafe { std::ffi::CStr::from_ptr(out) }
+        .to_str()
+        .unwrap()
+        .to_string();
+    unsafe { crate::shellac_free_string(out) };
+    let _ = fs::remove_dir_all(&dir);
+
+    assert!(json.contains(r#""status":"ok""#), "got {json}");
 }
