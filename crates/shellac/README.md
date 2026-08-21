@@ -141,11 +141,17 @@ document. `skipped` lists the ops that did not, each with a `reason` of
 `modify_target_not_found`. A skipped op is not a failure, so the status
 stays `ok`; if nothing was applied, the file is not written at all.
 
-The engine applies ops in order with two intra-batch effects only: `add`
-deduplicates against `/NM`s queued earlier in the same batch, and
-`modify_comment` is last-write-wins per object. It does not coalesce
-cross-op interactions such as `remove` then `add` of the same `/NM`;
-producing a coalesced batch is the caller's job.
+`add` rejects a duplicate `/NM` — as `add_duplicate_nm` — if the same
+`annot_id` is already on that page in the document, or was queued for that
+page earlier in the same batch. Both checks are per page: the same
+`annot_id` used on two different pages is not a duplicate and both adds are
+applied, so an `annot_id` a caller wants to be unique document-wide has to
+be made so by the caller.
+
+Beyond that dedup and last-write-wins for `modify_comment` at the same
+object, the engine has no intra-batch effects. It does not coalesce cross-op
+interactions such as `remove` then `add` of the same `/NM`; producing a
+coalesced batch is the caller's job.
 
 ## can_open
 

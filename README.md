@@ -51,7 +51,11 @@ or `modify_comment`, and applies them in the order given. `annot_id` is the
 caller's stable identity for an annotation: it is written to the
 annotation's `/NM` entry on `add`, and matched against `/NM` on `remove` and
 `modify_comment`. When `/NM` does not match, `remove` and `modify_comment`
-fall back to `subtype` plus `/Rect contains(user_point)`.
+fall back to `subtype` plus `/Rect contains(user_point)`. An `add` whose
+`annot_id` is already on that page — in the document, or queued earlier in
+the same batch — is rejected as `add_duplicate_nm`; the check is per page,
+so the same `annot_id` on two different pages is not a duplicate and a
+caller wanting document-wide unique ids has to enforce that itself.
 
 **Coordinates.** `rect`, `quad_points` and `user_point` are all in raw PDF
 user space — MediaBox-absolute, y-up, unrotated, the same space the file

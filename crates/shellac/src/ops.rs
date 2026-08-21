@@ -27,9 +27,10 @@
 //! * `add`: the engine checks these conditions **in this order** (matching
 //!   the implementation in `apply_ops`):
 //!     1. `add_page_not_found` if `page_index` is out of range for the doc.
-//!     2. `add_duplicate_nm` if an annotation with the same `/NM` already
-//!        exists in `prev` **or** was queued in an earlier op of this same
-//!        batch.
+//!     2. `add_duplicate_nm` if an annotation with the same `/NM` is
+//!        already on **that page** in `prev`, or was queued for that page
+//!        by an earlier op of this same batch. Both tests are per page:
+//!        the same `/NM` on two different pages is not a duplicate.
 //!     3. Otherwise a new annotation object is created, added to
 //!        `new_document`, and its ref appended to the page's `/Annots`.
 //!
@@ -75,9 +76,9 @@
 //! # Batch semantics (out of scope in this crate)
 //!
 //! This engine applies ops **in the order given** with two intra-batch
-//! effects only: `add` deduplication (against previously-queued adds in
-//! this batch) and last-write-wins for `modify_comment` at the same
-//! `ObjectId`. It does NOT coalesce cross-op interactions such as
+//! effects only: `add` deduplication (against adds queued earlier in this
+//! batch for the same page) and last-write-wins for `modify_comment` at
+//! the same `ObjectId`. It does NOT coalesce cross-op interactions such as
 //! `remove → add` of the same `/NM`, `add → remove`, or double `remove`.
 //! Producing a coalesced batch is the caller's responsibility.
 
@@ -231,8 +232,8 @@ pub enum Status {
 pub enum SkipReason {
     /// `add` op targeted a `page_index` beyond the document's page count.
     AddPageNotFound,
-    /// `add` op's `/NM` collides with an existing annotation (in `prev`
-    /// or earlier in this batch).
+    /// `add` op's `/NM` collides with another annotation on the same page
+    /// (already in `prev`, or queued earlier in this batch).
     AddDuplicateNm,
     /// `remove` op targeted a `page_index` beyond the document's page count.
     RemovePageNotFound,
