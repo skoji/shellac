@@ -69,11 +69,10 @@
 //!     - Extents: `(dw, dh) = rotated_dims(rotate, uw, uh)` — width and
 //!       height swap for /Rotate ∈ {90, 270}.
 //!
-//!   This used to be labeled "page space (PDFKit-shaped)". That label was
-//!   misleading: PDFKit's bounds getters do not return this space (see the
-//!   note above). The formulas themselves are correct for
-//!   rotated-display-frame inputs, so callers with such inputs still route
-//!   through [`rect_page_space_to_user`].
+//!   PDFKit's bounds getters do not return this space — see the note
+//!   above — so a rectangle is in it only if the caller built it in a
+//!   `/Rotate`-applied display frame. The formulas below are correct for
+//!   those inputs, which is what [`rect_page_space_to_user`] is for.
 //!
 //! # Transformations
 //!
@@ -97,10 +96,9 @@
 //! `/Rotate` is a multiple of 90 but may be negative or exceed a full turn,
 //! so it is reduced into `[0, 360)` first — see `norm_rotate`.
 //!
-//! The formulas generalize an earlier verification harness that only ever
-//! exercised MediaBox origin `(0, 0)` and therefore did not need the offset
-//! terms above; the offsets were added in review precisely because
-//! origin-anchored MediaBoxes are the exception, not the rule.
+//! Every formula carries `mx0` / `my0` terms rather than assuming a
+//! MediaBox anchored at the origin — see the `/MediaBox` note above for why
+//! that case is not the one to optimize for.
 
 /// An axis-aligned rectangle in some coordinate space: `(llx, lly, urx, ury)`,
 /// y-up, bottom-left origin. Concrete space is imposed by the wrapping
@@ -235,9 +233,10 @@ pub fn rect_page_space_to_user(rotate: i32, mb: UserSpaceRect, r: PageSpaceRect)
 
 // Fixed-arity min/max over the four rotated corners. Named component
 // helpers rather than an iterator-based fold because the input is always a
-// `[UserSpacePoint; 4]` — no runtime length variance to guard against. An
-// earlier version folded over a slice and carried an `.expect("unreachable")`
-// for the empty case; that "unreachable" path was itself the smell.
+// `[UserSpacePoint; 4]` — no runtime length variance to guard against. A
+// fold over a slice would need an `.expect("unreachable")` for an empty
+// case this type cannot produce, and an unreachable path is worth not
+// writing rather than worth explaining.
 
 fn min_max_x(corners: &[UserSpacePoint; 4]) -> (f64, f64) {
     let mut lo = corners[0].x;
