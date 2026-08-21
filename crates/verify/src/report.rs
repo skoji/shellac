@@ -149,7 +149,7 @@ fn scenario_section(out: &mut String, sc: &Scenario, san: &Sanitizer) {
         && sel.candidates >= 2
     {
         out.push_str(&format!(
-                "- C11a needle selection: {} candidates on page 1; selected {} (center distance {:.2}pt from PDFKit anchor bounds)\n",
+                "- C11a needle selection: {} candidates on page 1; selected {} (center distance {:.2}pt from the resolved anchor bounds)\n",
                 sel.candidates, sel.chosen, sel.center_distance
             ));
     }
@@ -238,7 +238,8 @@ pub fn build_report(
     // Text anchors.
     sb.push_str("\n## Text anchors\n\n");
     sb.push_str(
-        "The needle chosen by pdfkit_textbbox on each sample's page 1. Samples with found=false \
+        "The needle chosen on each sample's page 1 — by pdfkit_textbbox, or by \
+`pdftotext -bbox-layout` when the PDFKit helpers are disabled. Samples with found=false \
 skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement \
 (100,100)-(300,120) etc.\n\n",
     );
@@ -320,11 +321,19 @@ skip C11a/C11b in every scenario and fall back to the fixed-coordinate placement
             "- Producer: pdfinfo={:?} exiftool={:?}\n",
             r.base_producer, r.base_exif_producer
         ));
-        sb.push_str(&format!(
-            "- existing annotation types: {} / thumbnails: {}\n\n",
-            bracket_list(&r.base_annot_types),
-            r.base_thumb_ok
-        ));
+        if r.pdfkit_disabled {
+            // Absent, not empty: reporting `[]` and `false` would read as
+            // "no annotations, thumbnails broken".
+            sb.push_str(
+                "- existing annotation types: n/a (PDFKit helpers disabled) / thumbnails: n/a\n\n",
+            );
+        } else {
+            sb.push_str(&format!(
+                "- existing annotation types: {} / thumbnails: {}\n\n",
+                bracket_list(&r.base_annot_types),
+                r.base_thumb_ok
+            ));
+        }
 
         sb.push_str("### add / modify-comment / add-multiline / remove\n\n");
         scenario_section(&mut sb, &r.add, san);
@@ -711,6 +720,23 @@ mod tests {
     }
 
     #[test]
+    fn baseline_facts_only_pdfkit_can_report_are_na_when_it_is_disabled() {
+        let mut r = base_sample();
+        r.base_size = 1234;
+        r.pages = 1;
+        r.pdfkit_disabled = true;
+        let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
+        assert!(
+            md.contains(
+                "- existing annotation types: n/a (PDFKit helpers disabled) / thumbnails: n/a"
+            ),
+            "absent facts must not render as an empty list and a false thumbnail:\n{md}"
+        );
+        // The page count still comes from qpdf, so it is reported as usual.
+        assert!(md.contains("- size: 1234 bytes / pages: 1 / %%EOF: 0"));
+    }
+
+    #[test]
     fn report_fatal_sample_row() {
         let r = SampleResult {
             name: "S1".to_string(),
@@ -752,7 +778,7 @@ mod tests {
         });
         let md = build_report(&[r], "", "2026-01-01T00:00:00Z", &Sanitizer::new());
         assert!(md.contains(
-            "- C11a needle selection: 3 candidates on page 1; selected (1.00,2.00)-(3.00,4.00) (center distance 1.23pt from PDFKit anchor bounds)"
+            "- C11a needle selection: 3 candidates on page 1; selected (1.00,2.00)-(3.00,4.00) (center distance 1.23pt from the resolved anchor bounds)"
         ));
     }
 }

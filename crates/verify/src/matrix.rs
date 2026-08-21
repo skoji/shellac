@@ -5,6 +5,10 @@ use std::path::Path;
 
 use crate::cli::MatrixOpts;
 use crate::engine::{CliEngine, SaveEngine};
+use crate::exceptions::KnownExceptions;
+use crate::gate::{
+    FailCell, FailCells, apply_exceptions, collect_fail_cells, render_gate_section, sanitize_cells,
+};
 use crate::ids::NmIds;
 use crate::proc::run;
 use crate::report::build_report;
@@ -21,10 +25,12 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
     std::fs::create_dir_all(&opts.bin).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&opts.work).map_err(|e| e.to_string())?;
 
-    let bins = Bins {
-        pdfkit_text: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_text")?,
-        pdfkit_check: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_check")?,
-        pdfkit_textbbox: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_textbbox")?,
+    let bins = build_bins(opts)?;
+    // Loaded before the corpus run, not after it: a mistyped path or a
+    // malformed list should not cost a full matrix run to discover.
+    let exceptions = match opts.exceptions.as_str() {
+        "" => None,
+        path => Some(KnownExceptions::load(path)?),
     };
 
     let mut pdfs: Vec<std::path::PathBuf> = std::fs::read_dir(&opts.samples)
@@ -49,28 +55,71 @@ pub fn run_matrix(opts: &MatrixOpts) -> Result<(), String> {
     let ids = NmIds::new(&opts.nm_prefix);
     let results: Vec<_> = pdfs
         .iter()
-        .map(|p| run_sample(p, &opts.work, &bins, &eng, &ids))
+        .map(|p| run_sample(p, &opts.work, bins.as_ref(), &eng, &ids))
         .collect();
 
-    let env_lines = env_versions(&eng);
+    let env_lines = env_versions(&eng, opts.no_pdfkit);
     let sanitizer = build_sanitizer(opts);
-    let md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
+    let cells = sanitize_cells(&collect_fail_cells(&results), &sanitizer);
+    let mut md = build_report(&results, &env_lines, &rfc3339_utc_now(), &sanitizer);
+    md.push_str(&gate_annotation(exceptions.as_ref(), &cells));
     // Final whole-document pass as a safety net for anything assembled
     // outside the per-field sanitization.
     std::fs::write(&opts.out, sanitizer.apply(&md)).map_err(|e| e.to_string())?;
     eprintln!("report written to {}", opts.out);
+
+    if !opts.fails_out.is_empty() {
+        FailCells::new(cells).write(&opts.fails_out)?;
+        eprintln!("failing cells written to {}", opts.fails_out);
+    }
     Ok(())
 }
 
-fn env_versions(eng: &dyn SaveEngine) -> String {
+/// The report's gate section, or nothing when no list was supplied. The
+/// verdict is recorded here but never acted on: `matrix` reports, and
+/// `verify gate` is what turns a verdict into an exit status.
+fn gate_annotation(list: Option<&KnownExceptions>, cells: &[FailCell]) -> String {
+    match list {
+        None => String::new(),
+        Some(list) => format!("\n{}", render_gate_section(&apply_exceptions(cells, list))),
+    }
+}
+
+/// Compiles the PDFKit helpers, or reports that this run has none. With
+/// `--no-pdfkit` no compilation is attempted at all, which is what lets the
+/// mode run where Xcode does not exist.
+fn build_bins(opts: &MatrixOpts) -> Result<Option<Bins>, String> {
+    if opts.no_pdfkit {
+        return Ok(None);
+    }
+    Ok(Some(Bins {
+        pdfkit_text: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_text")?,
+        pdfkit_check: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_check")?,
+        pdfkit_textbbox: ensure_swift_bin(&opts.bin, &opts.scripts, "pdfkit_textbbox")?,
+    }))
+}
+
+/// How the report's environment section describes the helper state. The
+/// report is the audit trail, so which checks a run could not evaluate has
+/// to be visible in it.
+fn pdfkit_env_note(no_pdfkit: bool) -> &'static str {
+    if no_pdfkit {
+        "disabled (C5/C7/C11b not evaluated on this run)"
+    } else {
+        "enabled"
+    }
+}
+
+fn env_versions(eng: &dyn SaveEngine, no_pdfkit: bool) -> String {
     let q = run("qpdf", &["--version"]);
     let pt = run("pdftotext", &["-v"]);
     format!(
-        "- {}\n- {}\n- save engine: {}\n",
+        "- {}\n- {}\n- save engine: {}\n- PDFKit helpers: {}\n",
         first_line(q.stdout_str().trim()),
         // pdftotext prints its version banner on stderr.
         first_line(pt.stderr_str().trim()),
-        eng.name()
+        eng.name(),
+        pdfkit_env_note(no_pdfkit)
     )
 }
 
@@ -128,6 +177,35 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn opts_with(no_pdfkit: bool) -> MatrixOpts {
+        MatrixOpts {
+            // Deliberately unusable paths: with --no-pdfkit nothing may be
+            // compiled, so nothing may be read either.
+            bin: "/nonexistent/bin".to_string(),
+            scripts: "/nonexistent/scripts".to_string(),
+            no_pdfkit,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn no_pdfkit_skips_helper_compilation_entirely() {
+        assert!(build_bins(&opts_with(true)).unwrap().is_none());
+        assert!(
+            build_bins(&opts_with(false)).is_err(),
+            "without the flag a missing helper source is still an error"
+        );
+    }
+
+    #[test]
+    fn the_environment_section_records_which_checks_were_unavailable() {
+        assert_eq!(
+            pdfkit_env_note(true),
+            "disabled (C5/C7/C11b not evaluated on this run)"
+        );
+        assert_eq!(pdfkit_env_note(false), "enabled");
+    }
 
     #[test]
     fn civil_from_days_known_dates() {

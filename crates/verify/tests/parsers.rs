@@ -5,11 +5,13 @@
 
 use std::collections::BTreeMap;
 
-use verify::anchor::TextAnchor;
+use verify::anchor::{TextAnchor, anchor_from_words, choose_needle_word};
 use verify::checks::bbox::{PosCheck, PosDerive, evaluate_c11a, parse_page_dims, parse_words};
 use verify::checks::pdfkit::{PdfkitCheck, evaluate_c7, evaluate_c11b};
-use verify::checks::qpdf::{NmInfo, QpdfDoc, QuadCheck, evaluate_c6, evaluate_c6_quads};
-use verify::geom::Rect;
+use verify::checks::qpdf::{
+    NmInfo, PageGeometry, QpdfDoc, QuadCheck, evaluate_c6, evaluate_c6_quads,
+};
+use verify::geom::{Rect, derive_highlight_rect};
 
 fn fixture(name: &str) -> String {
     let path = format!("{}/tests/fixtures/{}", env!("CARGO_MANIFEST_DIR"), name);
@@ -198,7 +200,7 @@ fn bbox_s8_reports_unrotated_page_dims() {
 
 /// Real-data C11a evaluation over the S1 fixtures: the needle appears
 /// twice in pdftotext output, and the selection must prefer the candidate
-/// nearest to the PDFKit anchor bounds (the vertical title column near
+/// nearest to the anchor bounds it was given (the vertical title column near
 /// x=500), not the first candidate in document order (near x=77).
 #[test]
 fn c11a_real_s1_data_selects_nearest_candidate() {
@@ -229,8 +231,95 @@ fn c11a_real_s1_data_selects_nearest_candidate() {
         "must select the vertical-column candidate, got {}",
         sel.chosen
     );
-    assert!(
-        out.detail
-            .contains("needle matched 2 times on page 1, selected nearest to PDFKit anchor bounds")
+    assert!(out.detail.contains(
+        "needle matched 2 times on page 1, selected nearest to the resolved anchor bounds"
+    ));
+}
+
+// ---- the PDFKit-free anchor path ----
+
+/// S1's page geometry as qpdf reports it: an unrotated A4 MediaBox.
+fn s1_geometry(rotate: i64) -> PageGeometry {
+    PageGeometry {
+        media_box: Rect::new(0.0, 0.0, 595.486, 842.202),
+        rotate,
+    }
+}
+
+#[test]
+fn the_poppler_anchor_picks_the_same_needle_text_as_pdfkit_on_s1() {
+    let words = parse_words(&fixture("bbox-s1.xml"));
+    let chosen = choose_needle_word(&words).expect("S1 page 1 has words");
+    assert_eq!(
+        chosen.text, "銀河鉄道の夜",
+        "the first poppler word of at least three characters"
     );
+    assert_eq!(
+        chosen.text,
+        anchor_from_fixture("textbbox-s1.json").needle,
+        "the two extractors agree on the needle text for this page"
+    );
+}
+
+#[test]
+fn the_poppler_anchor_maps_a_rotated_page_to_the_same_user_bounds() {
+    // S8 is S1 with /Rotate 90: poppler reports the words already rotated,
+    // so the transform must land on S1's unrotated user-space bounds.
+    let s1 = anchor_from_words(&parse_words(&fixture("bbox-s1.xml")), &s1_geometry(0));
+    let s8 = anchor_from_words(&parse_words(&fixture("bbox-s8.xml")), &s1_geometry(90));
+    assert!(s1.found && s8.found);
+    assert_eq!(s1.needle, s8.needle);
+    let (a, b) = (s1.user_bounds, s8.user_bounds);
+    assert!(
+        a.close_to(b, 1e-6),
+        "rotated bounds {b} should equal unrotated {a}"
+    );
+}
+
+#[test]
+fn the_poppler_anchor_selects_the_first_page_occurrence_not_pdfkits() {
+    // The needle occurs twice on S1's page 1. PDFKit's helper reports the
+    // vertical title column (x > 400); the poppler rule takes the first
+    // word in document order instead. Both are valid anchors -- what
+    // matters is that placement and C11a then use the same one.
+    let anchor = anchor_from_words(&parse_words(&fixture("bbox-s1.xml")), &s1_geometry(0));
+    assert!(anchor.user_bounds.llx < 200.0, "{}", anchor.user_bounds);
+    assert!(anchor_from_fixture("textbbox-s1.json").user_bounds.llx > 400.0);
+}
+
+#[test]
+fn c11a_agrees_with_a_placement_derived_from_the_poppler_anchor() {
+    // The round trip the Linux mode depends on: place from the poppler
+    // anchor, then let C11a re-derive the needle from the same extractor.
+    let words = parse_words(&fixture("bbox-s1.xml"));
+    let anchor = anchor_from_words(&words, &s1_geometry(0));
+    let placed = derive_highlight_rect(anchor.user_bounds, anchor.media_box);
+
+    let mut nm: BTreeMap<String, NmInfo> = BTreeMap::new();
+    nm.insert(
+        HL.to_string(),
+        NmInfo {
+            found: true,
+            rect: Some([placed.llx, placed.lly, placed.urx, placed.ury]),
+            ..Default::default()
+        },
+    );
+    let out = evaluate_c11a(
+        &anchor,
+        &[PosCheck {
+            id: HL.to_string(),
+            derive: PosDerive::Highlight,
+        }],
+        &words,
+        &nm,
+    );
+    assert!(out.pass, "{}", out.detail);
+    assert!(out.detail.contains("match=true"));
+}
+
+#[test]
+fn a_page_without_words_produces_the_same_skip_as_pdfkit_reports_for_s3() {
+    let anchor = anchor_from_words(&[], &s1_geometry(0));
+    assert!(!anchor.found);
+    assert_eq!(anchor.found, anchor_from_fixture("textbbox-s3.json").found);
 }

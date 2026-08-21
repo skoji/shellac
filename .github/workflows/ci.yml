@@ -1,12 +1,26 @@
 name: CI
 
-# Phase A: the checks that need no save operation.
+# The harness verifies a save engine by driving it over the corpus, so a
+# full run needs a save CLI. shellac-cli is that CLI and lives in this
+# workspace, which is what lets the matrix run here at all.
 #
-# The harness verifies a save engine by driving it over the corpus, so the
-# full matrix needs a save CLI to run against. Everything that does not --
-# the Rust harness itself, the corpus generators, and the properties of the
-# committed fixtures -- is checked here on every push. A full-matrix
-# workflow will follow once a public save CLI exists.
+# It runs twice, because no single machine can evaluate every check:
+#
+#   linux         everything that needs only qpdf and poppler -- C1..C4, C6,
+#                 C6-quads, C8, C11a, C9/C10 and the encrypted paths -- plus
+#                 the corpus generators and the fixture audit.
+#   matrix-macos  the same corpus with the PDFKit helpers, which is the only
+#                 way to reach C5, C7 and C11b. C11b matters most: it
+#                 re-verifies C11a's placements through a second, unrelated
+#                 implementation.
+#
+# The generated samples are produced once, on Linux, and handed to the macOS
+# job as an artifact. S3 is built from page images and OCR and takes minutes;
+# building it twice would buy nothing.
+#
+# Both matrix runs end in a verdict rather than a report: `verify gate`
+# matches the failing cells against corpus/known-exceptions.json, so a
+# registered measurement difference does not fail CI and anything else does.
 #
 # The assertions live in scripts/ci/ rather than in this file so that a
 # failure can be reproduced locally by running the same script.
@@ -20,7 +34,7 @@ permissions:
 
 jobs:
   linux:
-    name: harness, generators, fixture audit (Linux)
+    name: harness, generators, fixture audit, matrix (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,18 +68,107 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qpdf poppler-utils img2pdf ocrmypdf tesseract-ocr-jpn fonts-noto-cjk
+            qpdf poppler-utils img2pdf ocrmypdf tesseract-ocr-jpn fonts-noto-cjk \
+            libimage-exiftool-perl
+
+      # The generators are idempotent, so a cache hit skips the slow S3
+      # build while the assertions below still run over whatever was
+      # restored -- a cache carrying something the generators would not
+      # produce today fails the step rather than being used.
+      - name: Cache the generated samples
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/generated
+          key: >-
+            generated-samples-${{ hashFiles('corpus/generators/**',
+            'corpus/fixtures/S1.pdf', 'scripts/ci/check-generated-samples.sh') }}
 
       # Regenerates S3 and S8..S12 and asserts what each one exists to
       # exercise. S3 is built from page images and OCR, so this is the slow
       # step of the job.
       - name: Generators produce the documented structures
-        run: bash scripts/ci/check-generated-samples.sh
+        run: bash scripts/ci/check-generated-samples.sh "$RUNNER_TEMP/generated"
 
       # The committed fixtures are binary blobs: what they carry cannot be
       # reviewed by reading a diff, so it is asserted instead.
       - name: Committed fixtures carry no identifying content
         run: bash scripts/ci/audit-fixtures.sh
+
+      # The corpus the matrix runs over: the generated samples plus the
+      # committed fixtures. Kept apart from the cached directory so the
+      # cache stays small -- the committed fixtures come from the checkout.
+      - name: Assemble the sample corpus
+        run: |
+          mkdir -p "$RUNNER_TEMP/samples"
+          cp "$RUNNER_TEMP/generated/"*.pdf "$RUNNER_TEMP/samples/"
+          cp corpus/fixtures/S2.pdf corpus/fixtures/S4.pdf \
+             corpus/fixtures/S5.pdf corpus/fixtures/S7.pdf "$RUNNER_TEMP/samples/"
+
+      - name: Verification matrix without the PDFKit helpers
+        run: bash scripts/ci/run-matrix-linux.sh "$RUNNER_TEMP/samples" "$RUNNER_TEMP/matrix-out"
+
+      # Uploaded even when the gate rejected the run: the report is how the
+      # rejection is read.
+      - name: Upload the matrix report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matrix-linux
+          path: ${{ runner.temp }}/matrix-out
+          if-no-files-found: ignore
+
+      - name: Upload the generated samples for the macOS job
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-samples
+          path: ${{ runner.temp }}/generated
+          retention-days: 1
+
+  matrix-macos:
+    name: full verification matrix (macOS)
+    needs: linux
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: macos-cargo-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: macos-cargo-
+
+      - name: Download the generated samples
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-samples
+          path: ${{ runner.temp }}/generated
+
+      # The runner image guarantees none of these. Installing when already
+      # present is a no-op.
+      - name: Install corpus tooling
+        run: brew install qpdf poppler exiftool
+
+      - name: Assemble the sample corpus
+        run: |
+          mkdir -p "$RUNNER_TEMP/samples"
+          cp "$RUNNER_TEMP/generated/"*.pdf "$RUNNER_TEMP/samples/"
+          cp corpus/fixtures/S2.pdf corpus/fixtures/S4.pdf \
+             corpus/fixtures/S5.pdf corpus/fixtures/S7.pdf "$RUNNER_TEMP/samples/"
+
+      - name: Verification matrix with every check
+        run: bash scripts/ci/run-matrix-macos.sh "$RUNNER_TEMP/samples" "$RUNNER_TEMP/matrix-out"
+
+      - name: Upload the matrix report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matrix-macos
+          path: ${{ runner.temp }}/matrix-out
+          if-no-files-found: ignore
 
   macos:
     name: PDFKit helpers and fixture invariants (macOS)

@@ -78,7 +78,7 @@ pub fn run_scenario(
     pages: i64,
     expect_present: &[String],
     expect_absent: &[String],
-    bins: &Bins,
+    bins: Option<&Bins>,
     anchor: &TextAnchor,
     pos_checks: &[PosCheck],
     c11b_id: Option<&str>,
@@ -94,7 +94,7 @@ pub fn run_scenario(
         .unwrap_or_default();
     eprintln!("    scenario {name}: {base_name}");
 
-    let cur = match load_state(Path::new(cur_path), &bins.pdfkit_text) {
+    let cur = match load_state(Path::new(cur_path), bins.map(|b| b.pdfkit_text.as_str())) {
         Ok(c) => c,
         Err(e) => {
             sc.fatal = format!("load state: {e}");
@@ -142,17 +142,21 @@ pub fn run_scenario(
         ));
     }
 
-    // C5: PDFKit text comparison (exact)
-    let (c5_pass, c5_detail) = check_c5(&prev.ktext, &cur.ktext);
-    sc.add("C5", c5_pass, c5_detail);
-    if !c5_pass {
-        sc.fail_logs.push(format!(
-            "C5 PDFKit text mismatch: prev(len={}) head={:?} cur(len={}) head={:?}",
-            prev.ktext.len(),
-            trunc(&prev.ktext, 300),
-            cur.ktext.len(),
-            trunc(&cur.ktext, 300)
-        ));
+    // C5: PDFKit text comparison (exact). Without the helpers there is no
+    // PDFKit text on either side, so the check is absent rather than a
+    // comparison of two empty strings that would trivially pass.
+    if bins.is_some() {
+        let (c5_pass, c5_detail) = check_c5(&prev.ktext, &cur.ktext);
+        sc.add("C5", c5_pass, c5_detail);
+        if !c5_pass {
+            sc.fail_logs.push(format!(
+                "C5 PDFKit text mismatch: prev(len={}) head={:?} cur(len={}) head={:?}",
+                prev.ktext.len(),
+                trunc(&prev.ktext, 300),
+                cur.ktext.len(),
+                trunc(&cur.ktext, 300)
+            ));
+        }
     }
 
     // One qpdf --json pass shared by C6 / C6-quads / C10 / C11a.
@@ -194,33 +198,42 @@ pub fn run_scenario(
     }
 
     // C7: PDFKit reload (carries C11b's needle/anchorNM when applicable).
-    let (needle_arg, anchor_nm_arg) = match c11b_id {
-        Some(id) if anchor.found => (anchor.needle.clone(), id.to_string()),
-        _ => (String::new(), String::new()),
-    };
-    let (ck, raw) = pdfkit_check(
-        &bins.pdfkit_check,
-        cur_path,
-        pages,
-        &needle_arg,
-        &anchor_nm_arg,
-    );
-    match &ck {
-        Err(cerr) => {
-            sc.add("C7", false, format!("pdfkit_check failed: {cerr}"));
-            sc.fail_logs.push(format!(
-                "C7 pdfkit_check error: {}\nraw:\n{}",
-                cerr,
-                trunc(&raw, 1000)
-            ));
-        }
-        Ok(c) => {
-            let out = evaluate_c7(c, &raw, pages, expect_present, expect_absent);
-            sc.add("C7", out.pass, out.detail);
-            if let Some(log) = out.fail_log {
-                sc.fail_logs.push(log);
+    // The one pdfkit_check run feeds both C7 and C11b, so C11b's verdict is
+    // held here and appended after C11a to keep the table's column order.
+    let mut c11b_outcome = None;
+    if let Some(bins) = bins {
+        let (needle_arg, anchor_nm_arg) = match c11b_id {
+            Some(id) if anchor.found => (anchor.needle.clone(), id.to_string()),
+            _ => (String::new(), String::new()),
+        };
+        let (ck, raw) = pdfkit_check(
+            &bins.pdfkit_check,
+            cur_path,
+            pages,
+            &needle_arg,
+            &anchor_nm_arg,
+        );
+        match &ck {
+            Err(cerr) => {
+                sc.add("C7", false, format!("pdfkit_check failed: {cerr}"));
+                sc.fail_logs.push(format!(
+                    "C7 pdfkit_check error: {}\nraw:\n{}",
+                    cerr,
+                    trunc(&raw, 1000)
+                ));
+            }
+            Ok(c) => {
+                let out = evaluate_c7(c, &raw, pages, expect_present, expect_absent);
+                sc.add("C7", out.pass, out.detail);
+                if let Some(log) = out.fail_log {
+                    sc.fail_logs.push(log);
+                }
             }
         }
+        c11b_outcome = Some(evaluate_c11b(
+            !needle_arg.is_empty(),
+            ck.as_ref().map_err(|e| e.as_str()),
+        ));
     }
 
     // C11a: independent (pdftotext-derived) position check.
@@ -232,10 +245,11 @@ pub fn run_scenario(
     sc.c11a_selection = c11a.selection;
 
     // C11b: PDFKit-side re-verification.
-    let c11b = evaluate_c11b(!needle_arg.is_empty(), ck.as_ref().map_err(|e| e.as_str()));
-    sc.add("C11b", c11b.pass, c11b.detail);
-    if let Some(log) = c11b.fail_log {
-        sc.fail_logs.push(log);
+    if let Some(c11b) = c11b_outcome {
+        sc.add("C11b", c11b.pass, c11b.detail);
+        if let Some(log) = c11b.fail_log {
+            sc.fail_logs.push(log);
+        }
     }
 
     // C9 record

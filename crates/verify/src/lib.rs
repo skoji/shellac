@@ -11,6 +11,7 @@ pub mod consts;
 pub mod encrypted;
 pub mod engine;
 pub mod exceptions;
+pub mod gate;
 pub mod geom;
 pub mod ids;
 pub mod matrix;

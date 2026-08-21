@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cells": [
+    {
+      "sample": "S2",
+      "check": "C1",
+      "scenario": "add",
+      "detail": "synthetic cell, not a real measurement: forward byte immutability broken in the add scenario. No known-exception entry covers it, and none should -- this file exists so every CI run proves the gate still rejects a failure the list does not name."
+    }
+  ]
+}
