@@ -38,10 +38,12 @@ void    shellac_free_string(char* ptr);
 
 `shellac_apply_ops` returns a heap-allocated NUL-terminated C string holding
 the JSON-encoded `ApplyResult`; the caller MUST free it with
-`shellac_free_string`. It returns `NULL` only for invalid arguments — a null
-pointer, a non-UTF-8 path, or malformed `ops_json`. A parse failure or an IO
-error still yields a well-formed `ApplyResult`, with `status` set to
-`parse_failed` or `io_failed`. `shellac_free_string(NULL)` is a no-op.
+`shellac_free_string`. It returns `NULL` when no result could be produced or
+handed back: an invalid argument (a null pointer or a non-UTF-8 path),
+malformed `ops_json`, a panic caught at the boundary, or a result that failed
+to serialize. A parse failure or an IO error is none of those — each still
+yields a well-formed `ApplyResult`, with `status` set to `parse_failed` or
+`io_failed`. `shellac_free_string(NULL)` is a no-op.
 
 ## Ops JSON
 

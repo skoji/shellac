@@ -25,13 +25,15 @@
 //!   [`ops::AnnotationOp`]), and — if any op mutated the document — writes
 //!   one incremental update back to `path` via `tmp file + rename`. Returns
 //!   a heap-allocated NUL-terminated C string containing the JSON-encoded
-//!   [`ops::ApplyResult`]. On invalid inputs (null pointers, non-UTF-8 path,
-//!   malformed ops_json) it returns `NULL`. The caller MUST free the
-//!   returned pointer with `shellac_free_string`.
+//!   [`ops::ApplyResult`]. The caller MUST free the returned pointer with
+//!   `shellac_free_string`.
 //!
-//!   Even a lopdf parse failure or IO error yields a well-formed
-//!   `ApplyResult` (with `status: parse_failed` or `status: io_failed`);
-//!   `NULL` is reserved for invalid-argument cases only.
+//!   `NULL` is returned when no `ApplyResult` could be produced or handed
+//!   back: an invalid argument (null pointer, non-UTF-8 path), malformed
+//!   `ops_json`, a panic caught at the boundary, or a result that failed to
+//!   serialize. A lopdf parse failure or an IO error is not one of those —
+//!   each yields a well-formed `ApplyResult` carrying
+//!   `status: parse_failed` or `status: io_failed`.
 //!
 //! * `shellac_can_open(path)` tries to parse the PDF (filtered load).
 //!   Returns:
