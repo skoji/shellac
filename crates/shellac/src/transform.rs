@@ -96,9 +96,11 @@
 //! `/Rotate` is a multiple of 90 but may be negative or exceed a full turn,
 //! so it is reduced into `[0, 360)` first — see `norm_rotate`.
 //!
-//! Every formula carries `mx0` / `my0` terms rather than assuming a
-//! MediaBox anchored at the origin — see the `/MediaBox` note above for why
-//! that case is not the one to optimize for.
+//! The three non-identity rotations carry `mx0` / `my0` terms rather than
+//! assuming a MediaBox anchored at the origin. `/Rotate 0` needs none: both
+//! spaces are MediaBox-absolute, so an unrotated point is already its own
+//! answer. See the `/MediaBox` note above for why an origin-anchored
+//! MediaBox is not the case to design around.
 
 /// An axis-aligned rectangle in some coordinate space: `(llx, lly, urx, ury)`,
 /// y-up, bottom-left origin. Concrete space is imposed by the wrapping
@@ -232,11 +234,12 @@ pub fn rect_page_space_to_user(rotate: i32, mb: UserSpaceRect, r: PageSpaceRect)
 }
 
 // Fixed-arity min/max over the four rotated corners. Named component
-// helpers rather than an iterator-based fold because the input is always a
-// `[UserSpacePoint; 4]` — no runtime length variance to guard against. A
-// fold over a slice would need an `.expect("unreachable")` for an empty
-// case this type cannot produce, and an unreachable path is worth not
-// writing rather than worth explaining.
+// helpers rather than an iterator chain because the input is always a
+// `[UserSpacePoint; 4]` — no runtime length variance to guard against.
+// `min_by` / `max_by` over a slice return `Option`, so that shape would
+// need an `.expect("unreachable")` for an empty case this type cannot
+// produce, and an unreachable path is worth not writing rather than worth
+// explaining.
 
 fn min_max_x(corners: &[UserSpacePoint; 4]) -> (f64, f64) {
     let mut lo = corners[0].x;
