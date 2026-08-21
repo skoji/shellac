@@ -19,10 +19,15 @@
 //! [`crate::ops::apply_ops`] therefore treats its input `rect`,
 //! `quad_points`, and `user_point` fields as **default user space**
 //! directly — the same coordinate space the PDF file itself stores in
-//! `/Rect` — and writes them verbatim into `/Rect` / `/QuadPoints` (and
-//! feeds them straight to the `/Rect contains(point)` fallback). A caller
-//! plumbing PDFKit-observed rectangles into `apply_ops` passes them through
-//! as-is; no page-space→user-space transform is needed on either side.
+//! `/Rect` — and applies no coordinate-space conversion of its own when it
+//! writes them into `/Rect` / `/QuadPoints` (and feeds them straight to the
+//! `/Rect contains(point)` fallback). A caller plumbing PDFKit-observed
+//! rectangles into `apply_ops` passes them through as-is; no
+//! page-space→user-space transform is needed on either side.
+//!
+//! `/QuadPoints` carries one normalization that is not a coordinate-space
+//! conversion: a vertical `Highlight` quad is written as its axis-aligned
+//! bounding box in the order Acrobat expects. See [`crate::ops`].
 //!
 //! # When [`rect_page_space_to_user`] / [`page_space_to_user`] are still useful
 //!

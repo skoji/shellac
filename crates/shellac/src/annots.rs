@@ -176,7 +176,7 @@ fn quad_points_for_subtype(pts: &[UserSpacePoint], subtype: &str) -> Object {
         let w = urx - llx;
         let h = ury - lly;
         if h > w {
-            // Vertical quad — reorder to Acrobat's [BL, TL, BR, TR].
+            // Vertical quad — emit the bbox corners in Acrobat's [BL, TL, BR, TR].
             arr.push(Object::Real(llx as f32));
             arr.push(Object::Real(lly as f32));
             arr.push(Object::Real(llx as f32));

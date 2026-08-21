@@ -59,17 +59,22 @@ caller wanting document-wide unique ids has to enforce that itself.
 
 **Coordinates.** `rect`, `quad_points` and `user_point` are all in raw PDF
 user space — MediaBox-absolute, y-up, unrotated, the same space the file
-itself stores in `/Rect`. No coordinate value is transformed on the way in;
-pages carrying `/Rotate` need no adjustment from the caller, and
+itself stores in `/Rect`. No coordinate-space conversion happens on the way
+in: pages carrying `/Rotate` need no adjustment from the caller, and
 `shellac::transform` documents the rotated-display-frame transforms and why
 `apply_ops` does not apply one.
 
-The one thing the engine does change is point *order*. For a `Highlight`
-whose quad is taller than it is wide — a run of vertical Japanese text — the
-four points are re-emitted in Acrobat's `[BL, TL, BR, TR]` order, because
-Acrobat's built-in QuadPoints rasterizer draws a bow-tie for such a quad in
-any other order. Wide quads and the other markup subtypes keep the caller's
-order, and the coordinates themselves are untouched either way.
+`rect` and `user_point` are written as given, and so is `quad_points` —
+except for one case in `/QuadPoints`. A `Highlight` quad taller than it is
+wide, which is what a run of vertical Japanese text produces, is written as
+the four corners of that quad's axis-aligned bounding box, in Acrobat's
+`[BL, TL, BR, TR]` order, because Acrobat's built-in QuadPoints rasterizer
+draws a bow-tie for such a quad in any other order. For the axis-aligned
+quads callers normally send, that is a reordering of the same four points;
+for a tilted quad it substitutes the box that encloses them, so the emitted
+coordinates need not appear in the input at all. Wide quads, and
+`Underline` / `StrikeOut` / `Squiggly` at any aspect ratio, are written as
+given.
 
 **Statuses.** `ApplyResult.status` is one of `ok`, `parse_failed`,
 `io_failed`, `encrypted_refused` or `annotations_restricted`. Ops that could

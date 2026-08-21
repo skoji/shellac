@@ -12,15 +12,18 @@
 //! MediaBox-absolute, y-up, unrotated space that PDF files store in
 //! `/Rect`, and the space Apple's PDFKit reports through
 //! `PDFSelection.bounds(for:)` / `PDFAnnotation.bounds` (verified on
-//! device and on macOS; see `crate::transform`). The engine writes the
-//! values themselves into `/Rect` / `/QuadPoints` unchanged and passes
-//! them straight to the `/Rect contains(point)` fallback resolver — no
-//! rotation transform is applied here.
+//! device and on macOS; see `crate::transform`). No coordinate-space
+//! conversion happens here: the values go into `/Rect` / `/QuadPoints` as
+//! given, and straight to the `/Rect contains(point)` fallback resolver.
 //!
-//! Point *order* is normalized in one case: a `Highlight` quad taller than
-//! it is wide is re-emitted in Acrobat's `[BL, TL, BR, TR]` order. See
-//! [`crate::annots`] for why. The coordinates are the same four corners
-//! either way.
+//! `/QuadPoints` has one exception. A `Highlight` quad taller than it is
+//! wide is written as the four corners of that quad's axis-aligned
+//! bounding box, in Acrobat's `[BL, TL, BR, TR]` order. For the
+//! axis-aligned quads callers normally send, that is a reordering of the
+//! same four points; for a tilted quad it substitutes the enclosing box,
+//! so the emitted coordinate pairs need not appear in the input at all.
+//! Wide quads and the other markup subtypes are written as given. See
+//! [`crate::annots`] for why Acrobat needs this.
 //!
 //! # Semantics
 //!

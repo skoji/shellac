@@ -59,16 +59,19 @@ accepted as an alias for `annot_id`.
 
 Rectangles (`rect`), quad points (`quad_points`) and points (`user_point`)
 are all in raw PDF **user space**: MediaBox-absolute, y-up, unrotated — the
-same space the file itself stores in `/Rect`. No coordinate value is
-transformed on the way in, and no rotation transform is applied, so a
+same space the file itself stores in `/Rect`. No coordinate-space
+conversion is applied on the way in, rotation included, so a
 `/Rotate`-bearing page needs no adjustment from the caller.
 
-Point *order* is the one thing normalized. A `Highlight` quad that is taller
-than it is wide — a run of vertical Japanese text — is written in Acrobat's
-`[BL, TL, BR, TR]` order regardless of the order it arrived in, because
-Acrobat's built-in QuadPoints rasterizer draws a bow-tie for such a quad
-otherwise. Wide quads, and `Underline` / `StrikeOut` / `Squiggly` at any
-aspect ratio, keep the caller's order.
+`rect` and `user_point` are written as given. So is `quad_points`, with one
+exception: a `Highlight` quad taller than it is wide — a run of vertical
+Japanese text — is written as the four corners of that quad's axis-aligned
+bounding box, in Acrobat's `[BL, TL, BR, TR]` order, because Acrobat's
+built-in QuadPoints rasterizer draws a bow-tie for such a quad otherwise.
+For an axis-aligned quad that amounts to a reordering of the same four
+points; for a tilted one it substitutes the enclosing box, so the emitted
+coordinates need not appear in the input. Wide quads, and `Underline` /
+`StrikeOut` / `Squiggly` at any aspect ratio, are written as given.
 
 ### add
 
