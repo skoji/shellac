@@ -57,6 +57,14 @@ ci_matrix_canary() {
     ci_require_file "${canary}"
     local rc=0
     "$2" gate --fails "${canary}" --exceptions "$3" > "${CI_TMP}/canary.log" 2>&1 || rc=$?
+    if [ "${rc}" -ne 3 ]; then
+        # The log lives in CI_TMP, which the EXIT trap deletes, so a canary
+        # that misbehaves would otherwise leave nothing behind but its exit
+        # code -- and the exit code is the one thing already known to be
+        # wrong. Emit it while the file still exists.
+        printf '%s: canary gate exited %s; its output follows\n' "$1" "${rc}" >&2
+        cat "${CI_TMP}/canary.log" >&2
+    fi
     ci_expect_eq "$1: a failure outside the list exits 3" "3" "${rc}"
 }
 
