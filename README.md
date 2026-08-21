@@ -60,9 +60,16 @@ caller wanting document-wide unique ids has to enforce that itself.
 **Coordinates.** `rect`, `quad_points` and `user_point` are all in raw PDF
 user space — MediaBox-absolute, y-up, unrotated, the same space the file
 itself stores in `/Rect`. No coordinate-space conversion happens on the way
-in: pages carrying `/Rotate` need no adjustment from the caller, and
-`shellac::transform` documents the rotated-display-frame transforms and why
-`apply_ops` does not apply one.
+in, which is what makes `/Rotate` a non-event for a caller that already
+holds user-space coordinates — PDFKit's `PDFSelection.bounds(for:)` and
+`PDFAnnotation.bounds` do, on every rotation.
+
+A caller that does not is on the hook for the conversion. Rectangles
+computed in a `/Rotate`-applied display frame — from view-space touches on
+a rotated page, or hand-built by a debug tool — have to go through
+`shellac::transform::rect_page_space_to_user` first; `apply_ops` will not
+do it for them. `shellac::transform` documents both the transforms and
+which PDFKit APIs have and have not been verified against user space.
 
 The three fields are used differently. `rect` goes into `/Rect` as given.
 `user_point` is never written to the file at all: it is how a `remove` or

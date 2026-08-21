@@ -61,7 +61,15 @@ Rectangles (`rect`), quad points (`quad_points`) and points (`user_point`)
 are all in raw PDF **user space**: MediaBox-absolute, y-up, unrotated — the
 same space the file itself stores in `/Rect`. No coordinate-space
 conversion is applied on the way in, rotation included, so a
-`/Rotate`-bearing page needs no adjustment from the caller.
+`/Rotate`-bearing page needs no adjustment from a caller that already holds
+user-space coordinates — PDFKit's `PDFSelection.bounds(for:)` and
+`PDFAnnotation.bounds` return them on every rotation.
+
+A caller whose rectangles come from a `/Rotate`-applied display frame
+instead — view-space touches on a rotated page, or a hand-built debug tool
+— has to convert them with `shellac::transform::rect_page_space_to_user`
+before handing them over. See `shellac::transform` for the transforms and
+for which PDFKit APIs have been verified against user space.
 
 The three are used differently. `rect` goes into `/Rect` as given.
 `user_point` is never written to the file: it is how a `remove` or
