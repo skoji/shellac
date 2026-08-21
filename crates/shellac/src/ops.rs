@@ -414,8 +414,10 @@ pub fn apply_ops(path: &Path, batch: OpsBatch) -> ApplyResult {
                     continue;
                 }
 
-                // Rect / quad_points are already in raw user space per this
-                // engine's coordinate contract — write them verbatim.
+                // No coordinate-space conversion: rect / quad_points arrive
+                // in raw user space per this engine's contract. The one
+                // /QuadPoints normalization — the bounding box a vertical
+                // Highlight quad becomes — belongs to `annots`, not here.
                 let user_rect = rect.into_user_space_rect();
                 let user_quads: Option<Vec<UserSpacePoint>> = quad_points.map(|pts| {
                     pts.iter()

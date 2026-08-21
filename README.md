@@ -64,17 +64,20 @@ in: pages carrying `/Rotate` need no adjustment from the caller, and
 `shellac::transform` documents the rotated-display-frame transforms and why
 `apply_ops` does not apply one.
 
-`rect` and `user_point` are written as given, and so is `quad_points` —
-except for one case in `/QuadPoints`. A `Highlight` quad taller than it is
-wide, which is what a run of vertical Japanese text produces, is written as
-the four corners of that quad's axis-aligned bounding box, in Acrobat's
-`[BL, TL, BR, TR]` order, because Acrobat's built-in QuadPoints rasterizer
-draws a bow-tie for such a quad in any other order. For the axis-aligned
-quads callers normally send, that is a reordering of the same four points;
-for a tilted quad it substitutes the box that encloses them, so the emitted
-coordinates need not appear in the input at all. Wide quads, and
-`Underline` / `StrikeOut` / `Squiggly` at any aspect ratio, are written as
-given.
+The three fields are used differently. `rect` goes into `/Rect` as given.
+`user_point` is never written to the file at all: it is how a `remove` or
+`modify_comment` finds its target when `/NM` does not match, by testing
+which annotation's `/Rect` contains it. `quad_points` goes into
+`/QuadPoints` as given, with one exception. A `Highlight` quad taller than
+it is wide, which is what a run of vertical Japanese text produces, is
+written as the four corners of that quad's axis-aligned bounding box, in
+Acrobat's `[BL, TL, BR, TR]` order, because Acrobat's built-in QuadPoints
+rasterizer draws a bow-tie for such a quad in any other order. For the
+axis-aligned quads callers normally send, that is a reordering of the same
+four points; for a tilted quad it substitutes the box that encloses them,
+so the emitted coordinates need not appear in the input at all. Wide
+quads, and `Underline` / `StrikeOut` / `Squiggly` at any aspect ratio, are
+written as given.
 
 **Statuses.** `ApplyResult.status` is one of `ok`, `parse_failed`,
 `io_failed`, `encrypted_refused` or `annotations_restricted`. Ops that could
