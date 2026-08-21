@@ -1,6 +1,6 @@
 [package]
 name = "shellac"
-version = "0.1.0"
+version = "0.1.1"
 # Deliberately not on the workspace's 2024 edition: this crate's FFI surface
 # uses the pre-2024 `#[no_mangle]` / `unsafe extern` forms. Moving to 2024 is
 # a separate, reviewable change.
