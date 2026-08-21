@@ -98,11 +98,7 @@ jobs:
       # committed fixtures. Kept apart from the cached directory so the
       # cache stays small -- the committed fixtures come from the checkout.
       - name: Assemble the sample corpus
-        run: |
-          mkdir -p "$RUNNER_TEMP/samples"
-          cp "$RUNNER_TEMP/generated/"*.pdf "$RUNNER_TEMP/samples/"
-          cp corpus/fixtures/S2.pdf corpus/fixtures/S4.pdf \
-             corpus/fixtures/S5.pdf corpus/fixtures/S7.pdf "$RUNNER_TEMP/samples/"
+        run: bash scripts/ci/assemble-samples.sh "$RUNNER_TEMP/generated" "$RUNNER_TEMP/samples"
 
       - name: Verification matrix without the PDFKit helpers
         run: bash scripts/ci/run-matrix-linux.sh "$RUNNER_TEMP/samples" "$RUNNER_TEMP/matrix-out"
@@ -152,12 +148,10 @@ jobs:
       - name: Install corpus tooling
         run: brew install qpdf poppler exiftool
 
+      # Same assembly as the Linux job: the generated samples arrive as an
+      # artifact, the committed fixtures from this job's own checkout.
       - name: Assemble the sample corpus
-        run: |
-          mkdir -p "$RUNNER_TEMP/samples"
-          cp "$RUNNER_TEMP/generated/"*.pdf "$RUNNER_TEMP/samples/"
-          cp corpus/fixtures/S2.pdf corpus/fixtures/S4.pdf \
-             corpus/fixtures/S5.pdf corpus/fixtures/S7.pdf "$RUNNER_TEMP/samples/"
+        run: bash scripts/ci/assemble-samples.sh "$RUNNER_TEMP/generated" "$RUNNER_TEMP/samples"
 
       - name: Verification matrix with every check
         run: bash scripts/ci/run-matrix-macos.sh "$RUNNER_TEMP/samples" "$RUNNER_TEMP/matrix-out"
