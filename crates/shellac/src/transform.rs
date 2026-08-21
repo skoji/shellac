@@ -95,7 +95,7 @@
 //! axis-aligned bounding box.
 //!
 //! `/Rotate` is a multiple of 90 but may be negative or exceed a full turn,
-//! so it is reduced into `[0, 360)` first — see [`norm_rotate`].
+//! so it is reduced into `[0, 360)` first — see `norm_rotate`.
 //!
 //! The formulas generalize an earlier verification harness that only ever
 //! exercised MediaBox origin `(0, 0)` and therefore did not need the offset

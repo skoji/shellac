@@ -339,7 +339,7 @@ pub fn build_highlight_ap_stream(
 /// Includes /QuadPoints for the text-markup subtypes that take them;
 /// pass `explicit_quads = Some(...)` to override the default
 /// rect-derived quad ordering. Explicit quads route through
-/// [`quad_points_for_subtype`], so a vertical Highlight quad is emitted as
+/// `quad_points_for_subtype`, so a vertical Highlight quad is emitted as
 /// its bounding box rather than as the points handed in.
 pub fn text_markup_dict(
     subtype: &str,
