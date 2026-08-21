@@ -30,6 +30,14 @@ pub const SKIP_REFUSED: &str = "skipped: encrypted-refused expected";
 /// Per-iteration incremental growth limit for C8 (fail at >= 50 KiB).
 pub const C8_MAX_DELTA: i64 = 50 * 1024;
 
+/// Incremental saves per sample in the C8 endurance scenario.
+///
+/// The loop that runs them, the completeness check that decides a run
+/// stopped early, and the sentences that report both all state this number.
+/// Split across those places it is four chances for the report to describe a
+/// run that did not happen.
+pub const LOOP_ITERATIONS: usize = 10;
+
 /// One check definition: the id used in tables plus the legend meaning.
 pub struct CheckDef {
     pub id: &'static str,
@@ -98,3 +106,24 @@ pub const CELL_VOCAB_NOTE: &str = "Cell values: `pass` / `**FAIL**` (at least on
 `**FAIL (op)**` (a save operation itself failed, so its checks never ran) / `n/a` (not applicable). \
 A `pass` whose detail starts with `skip:` means there was nothing to verify (e.g. no text anchor), \
 not a verified position match. Encrypted-column values: `roundtrip-pass` / `refused-unchanged` / `**FAIL**` / `n/a`.";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The legend states the loop count in prose, and a reader takes it for
+    // what the run did. Pin the sentence to the constant the run reads.
+    #[test]
+    fn the_c8_legend_states_the_loop_iteration_count() {
+        let c8 = CHECK_DEFS
+            .iter()
+            .find(|d| d.id == "C8")
+            .expect("C8 is in the check catalogue");
+        assert!(
+            c8.meaning
+                .contains(&format!("{LOOP_ITERATIONS} loop iterations")),
+            "the C8 legend does not state {LOOP_ITERATIONS} loop iterations: {}",
+            c8.meaning
+        );
+    }
+}

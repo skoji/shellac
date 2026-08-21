@@ -10,7 +10,7 @@ use crate::checks::enc_qpdf::qpdf_check_ok;
 use crate::checks::pdfkit::pdfkit_check;
 use crate::checks::producer::producer_info;
 use crate::checks::qpdf::{QpdfDoc, QuadCheck};
-use crate::consts::{C8_MAX_DELTA, SKIP_REFUSED};
+use crate::consts::{C8_MAX_DELTA, LOOP_ITERATIONS, SKIP_REFUSED};
 use crate::encrypted::{EncMode, classify_encrypted, extract_status};
 use crate::engine::SaveEngine;
 use crate::geom::{
@@ -422,7 +422,7 @@ pub fn run_sample(
     } else {
         let mut prev = base_state;
         let mut loop_ids: Vec<String> = Vec::new();
-        for i in 1..=10i64 {
+        for i in 1..=LOOP_ITERATIONS as i64 {
             if let Err(e) = eng.loop_one(&loop_path_str, i, loop_rect(i)) {
                 c8 = false;
                 c8_notes.push(format!("iter {i} loopOne: {e}"));
@@ -453,7 +453,7 @@ pub fn run_sample(
             // Only the final iteration gets the extra qpdf --check; a
             // corrupt re-encryption in iter i would fail the same way in
             // iter 10.
-            if i == 10 {
+            if i == LOOP_ITERATIONS as i64 {
                 attach_enc_qpdf(&mut sc, &loop_path_str, res.enc_mode);
             }
             // A scenario-level fatal (state load failure) keeps prev as
@@ -478,10 +478,10 @@ pub fn run_sample(
             }
         }
     }
-    if res.loop_scenarios.len() < 10 {
+    if res.loop_scenarios.len() < LOOP_ITERATIONS {
         c8 = false;
         c8_notes.push(format!(
-            "only {}/10 iterations completed",
+            "only {}/{LOOP_ITERATIONS} iterations completed",
             res.loop_scenarios.len()
         ));
     }
@@ -489,7 +489,7 @@ pub fn run_sample(
     if c8_notes.is_empty() {
         let max_d = res.loop_deltas.iter().copied().max().unwrap_or(0);
         c8_notes.push(format!(
-            "10/10 iterations pass, max increment {max_d} bytes"
+            "{LOOP_ITERATIONS}/{LOOP_ITERATIONS} iterations pass, max increment {max_d} bytes"
         ));
     }
     res.c8_detail = c8_notes.join("; ");
