@@ -48,6 +48,17 @@ fn main() {
 
     let update_header = env::var_os("SHELLAC_UPDATE_HEADER").is_some();
 
+    // Cargo does not clear OUT_DIR between build script runs, and a failed
+    // generate() below never overwrites out_header -- so without this, a
+    // stale header left by an earlier successful build (e.g. an incremental
+    // build, or CI's cached `target`) would make the freshness test pass
+    // even though this run's cbindgen failed.
+    match fs::remove_file(&out_header) {
+        Ok(()) => {}
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => panic!("failed to remove stale {}: {}", out_header.display(), err),
+    }
+
     match cbindgen::Builder::new()
         .with_config(config)
         .with_crate(&crate_dir)
