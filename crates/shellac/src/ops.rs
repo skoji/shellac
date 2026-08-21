@@ -13,17 +13,24 @@
 //! `/Rect`, and the space Apple's PDFKit reports through
 //! `PDFSelection.bounds(for:)` / `PDFAnnotation.bounds` (verified on
 //! device and on macOS; see `crate::transform`). No coordinate-space
-//! conversion happens here: the values go into `/Rect` / `/QuadPoints` as
-//! given, and straight to the `/Rect contains(point)` fallback resolver.
+//! conversion happens anywhere in this module.
 //!
-//! `/QuadPoints` has one exception. A `Highlight` quad taller than it is
-//! wide is written as the four corners of that quad's axis-aligned
-//! bounding box, in Acrobat's `[BL, TL, BR, TR]` order. For the
-//! axis-aligned quads callers normally send, that is a reordering of the
-//! same four points; for a tilted quad it substitutes the enclosing box,
-//! so the emitted coordinate pairs need not appear in the input at all.
-//! Wide quads and the other markup subtypes are written as given. See
-//! [`crate::annots`] for why Acrobat needs this.
+//! Where each field goes differs, though:
+//!
+//! * `rect` is written into the annotation's `/Rect`, as given.
+//! * `quad_points` is written into `/QuadPoints`, as given, with one
+//!   exception: a `Highlight` quad taller than it is wide is written as
+//!   the four corners of that quad's axis-aligned bounding box, in
+//!   Acrobat's `[BL, TL, BR, TR]` order. For the axis-aligned quads
+//!   callers normally send that is a reordering of the same four points;
+//!   for a tilted quad it substitutes the enclosing box, so the emitted
+//!   coordinate pairs need not appear in the input at all. Wide quads and
+//!   the other markup subtypes are written as given. The normalization
+//!   itself lives in [`crate::annots`], which documents why Acrobat needs
+//!   it.
+//! * `user_point` is never written to the file. It resolves the target of
+//!   a `remove` / `modify_comment` when `/NM` does not match, by testing
+//!   which annotation's `/Rect` contains it, and nothing else.
 //!
 //! # Semantics
 //!

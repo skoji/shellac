@@ -19,11 +19,13 @@
 //! [`crate::ops::apply_ops`] therefore treats its input `rect`,
 //! `quad_points`, and `user_point` fields as **default user space**
 //! directly — the same coordinate space the PDF file itself stores in
-//! `/Rect` — and applies no coordinate-space conversion of its own when it
-//! writes them into `/Rect` / `/QuadPoints` (and feeds them straight to the
-//! `/Rect contains(point)` fallback). A caller plumbing PDFKit-observed
-//! rectangles into `apply_ops` passes them through as-is; no
-//! page-space→user-space transform is needed on either side.
+//! `/Rect` — and applies no coordinate-space conversion of its own. `rect`
+//! goes into the annotation's `/Rect` and `quad_points` into
+//! `/QuadPoints`; `user_point` is not written to the file at all, serving
+//! only the `/Rect contains(point)` lookup that resolves a `remove` /
+//! `modify_comment` target. A caller plumbing PDFKit-observed rectangles
+//! into `apply_ops` passes them through as-is; no page-space→user-space
+//! transform is needed on either side.
 //!
 //! `/QuadPoints` carries one normalization that is not a coordinate-space
 //! conversion: a vertical `Highlight` quad is written as its axis-aligned
