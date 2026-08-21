@@ -1,6 +1,7 @@
 //! Per-sample orchestration: scenario sequencing (add / modify-comment /
-//! add-multiline / remove / loop x10), the C8 endurance aggregate, and the
-//! refused-mode branch for encrypted fixtures the engine must not touch.
+//! add-multiline / remove / the repeated-save loop), the C8 endurance
+//! aggregate, and the refused-mode branch for encrypted fixtures the engine
+//! must not touch.
 
 use std::path::Path;
 
@@ -411,7 +412,7 @@ pub fn run_sample(
         }
     }
 
-    // Scenario: loop x10 (C8 aggregate)
+    // Scenario: the repeated-save loop (C8 aggregate)
     let loop_path = dir.join("loop.pdf");
     let loop_path_str = loop_path.to_string_lossy().into_owned();
     let mut c8 = true;
@@ -452,7 +453,7 @@ pub fn run_sample(
             );
             // Only the final iteration gets the extra qpdf --check; a
             // corrupt re-encryption in iter i would fail the same way in
-            // iter 10.
+            // the last one.
             if i == LOOP_ITERATIONS as i64 {
                 attach_enc_qpdf(&mut sc, &loop_path_str, res.enc_mode);
             }
