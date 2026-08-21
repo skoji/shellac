@@ -12,6 +12,11 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SHELLAC_SKIP_CBINDGEN");
     println!("cargo:rerun-if-env-changed=DOCS_RS");
 
+    // Declared unconditionally: tests/header_fresh.rs gates on this cfg, and
+    // clippy's `unexpected_cfgs` lint (denied via `-D warnings` in CI) needs
+    // it registered even on branches that never emit it.
+    println!("cargo:rustc-check-cfg=cfg(shellac_header_generated)");
+
     // Escape hatch: CI or downstream builds that only need to compile the
     // staticlib and already have a checked-in header can skip cbindgen.
     if env::var_os("SHELLAC_SKIP_CBINDGEN").is_some() {
@@ -38,6 +43,7 @@ fn main() {
     {
         Ok(bindings) => {
             bindings.write_to_file(&out_header);
+            println!("cargo:rustc-cfg=shellac_header_generated");
         }
         Err(err) => {
             // Do NOT fail the build if cbindgen cannot run (e.g. missing tool
