@@ -15,14 +15,23 @@ fn main() {
 
     // Declared unconditionally: tests/header_fresh.rs gates on this cfg, and
     // clippy's `unexpected_cfgs` lint (denied via `-D warnings` in CI) needs
-    // it registered even on branches that never emit it.
-    println!("cargo:rustc-check-cfg=cfg(shellac_header_generated)");
+    // it registered even on the branch that never emits it.
+    println!("cargo:rustc-check-cfg=cfg(shellac_cbindgen_ran)");
 
     // Escape hatch: CI or downstream builds that only need to compile the
     // staticlib and already have a checked-in header can skip cbindgen.
     if env::var_os("SHELLAC_SKIP_CBINDGEN").is_some() {
         return;
     }
+
+    // Emitted before cbindgen runs, not after it succeeds: a cbindgen
+    // failure below only warns (so a downstream build isn't broken by it),
+    // and gating the freshness test on "succeeded" would let that failure
+    // silently disable the one check that catches a stale committed header.
+    // Gating on "ran" instead means a real failure surfaces as a compile
+    // error in tests/header_fresh.rs, which fails `cargo test` in this repo
+    // (tests/ isn't packaged, so this cfg's meaning is invisible downstream).
+    println!("cargo:rustc-cfg=shellac_cbindgen_ran");
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set");
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR must be set");
@@ -46,7 +55,6 @@ fn main() {
     {
         Ok(bindings) => {
             bindings.write_to_file(&out_header);
-            println!("cargo:rustc-cfg=shellac_header_generated");
 
             if update_header {
                 let committed_header: PathBuf =
