@@ -14,23 +14,29 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SHELLAC_UPDATE_HEADER");
 
     // Declared unconditionally: tests/header_fresh.rs gates on this cfg, and
-    // clippy's `unexpected_cfgs` lint (denied via `-D warnings` in CI) needs
-    // it registered even on the branch that never emits it.
+    // rustc's `unexpected_cfgs` lint (surfaced as an error only because CI
+    // runs clippy with `-D warnings`) needs it registered even on the
+    // branch that never emits it.
     println!("cargo:rustc-check-cfg=cfg(shellac_cbindgen_ran)");
+
+    let skip_cbindgen = env::var_os("SHELLAC_SKIP_CBINDGEN").is_some();
+    let update_header = env::var_os("SHELLAC_UPDATE_HEADER").is_some();
+
+    // Combining them would silently do nothing: skip means generate() never
+    // runs, so there is nothing fresh to copy into include/, and the
+    // maintainer opt-in below would leave that header stale without saying
+    // so.
+    if skip_cbindgen && update_header {
+        panic!("SHELLAC_SKIP_CBINDGEN and SHELLAC_UPDATE_HEADER cannot both be set");
+    }
 
     // Escape hatch: CI or downstream builds that only need to compile the
     // staticlib and already have a checked-in header can skip cbindgen.
-    if env::var_os("SHELLAC_SKIP_CBINDGEN").is_some() {
+    if skip_cbindgen {
         return;
     }
 
-    // Emitted before cbindgen runs, not after it succeeds: a cbindgen
-    // failure below only warns (so a downstream build isn't broken by it),
-    // and gating the freshness test on "succeeded" would let that failure
-    // silently disable the one check that catches a stale committed header.
-    // Gating on "ran" instead means a real failure surfaces as a compile
-    // error in tests/header_fresh.rs, which fails `cargo test` in this repo
-    // (tests/ isn't packaged, so this cfg's meaning is invisible downstream).
+    // See tests/header_fresh.rs for why this is emitted for "ran", not "succeeded".
     println!("cargo:rustc-cfg=shellac_cbindgen_ran");
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set");
@@ -46,8 +52,6 @@ fn main() {
     let config = cbindgen::Config::from_file(PathBuf::from(&crate_dir).join("cbindgen.toml"))
         .expect("failed to read cbindgen.toml");
 
-    let update_header = env::var_os("SHELLAC_UPDATE_HEADER").is_some();
-
     // Cargo does not clear OUT_DIR between build script runs, and a failed
     // generate() below never overwrites out_header -- so without this, a
     // stale header left by an earlier successful build (e.g. an incremental
@@ -59,9 +63,18 @@ fn main() {
         Err(err) => panic!("failed to remove stale {}: {}", out_header.display(), err),
     }
 
+    // with_src (parses each listed file directly) rather than with_crate
+    // (which shells out to `cargo metadata` against this crate's own
+    // manifest): that subprocess can touch Cargo.lock or the registry
+    // cache, which is more than the "writes only under OUT_DIR" guarantee
+    // above is meant to allow.
+    let src_dir = PathBuf::from(&crate_dir).join("src");
     match cbindgen::Builder::new()
         .with_config(config)
-        .with_crate(&crate_dir)
+        .with_src(src_dir.join("lib.rs"))
+        .with_src(src_dir.join("ops.rs"))
+        .with_src(src_dir.join("annots.rs"))
+        .with_src(src_dir.join("transform.rs"))
         .generate()
     {
         Ok(bindings) => {
