@@ -48,8 +48,10 @@ yields a well-formed `ApplyResult`, with `status` set to `parse_failed` or
 `build.rs` regenerates the header from the current FFI surface into
 `OUT_DIR` at build time — not into `include/` during a normal build, so
 building this crate as a dependency never writes outside `OUT_DIR`.
-`SHELLAC_SKIP_CBINDGEN` skips generation entirely (for a build that only
-needs the staticlib and already has a header to link against). After
+`SHELLAC_SKIP_CBINDGEN` and `SHELLAC_UPDATE_HEADER` both key off whether the
+variable is set at all, not its value — `SHELLAC_SKIP_CBINDGEN=0` still
+skips. `SHELLAC_SKIP_CBINDGEN` skips generation entirely (for a build that
+only needs the staticlib and already has a header to link against). After
 changing the FFI surface, a maintainer refreshes the committed
 `include/shellac.h` with:
 
