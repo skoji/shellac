@@ -11,8 +11,10 @@
 //!
 //! # FFI contract
 //!
-//! Three symbols are exposed with C ABI (`cbindgen` generates the header at
-//! build time from these; see `build.rs`):
+//! Three symbols are exposed with C ABI (`cbindgen` generates the header
+//! into `OUT_DIR` at build time from these; see `build.rs`. The shipped
+//! header lives at `include/shellac.h`; see `crates/shellac/README.md` for
+//! how it's kept in sync):
 //!
 //! ```c
 //! char* shellac_apply_ops(const char* path, const char* ops_json);
