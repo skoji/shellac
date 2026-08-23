@@ -46,11 +46,12 @@ yields a well-formed `ApplyResult`, with `status` set to `parse_failed` or
 `io_failed`. `shellac_free_string(NULL)` is a no-op.
 
 `build.rs` regenerates the header from the current FFI surface into
-`OUT_DIR` on every build — never into `include/`, so building this crate as
-a dependency never writes outside `OUT_DIR`. `SHELLAC_SKIP_CBINDGEN` skips
-generation entirely (for a build that only needs the staticlib and already
-has a header to link against). After changing the FFI surface, a maintainer
-refreshes the committed `include/shellac.h` with:
+`OUT_DIR` at build time — not into `include/` during a normal build, so
+building this crate as a dependency never writes outside `OUT_DIR`.
+`SHELLAC_SKIP_CBINDGEN` skips generation entirely (for a build that only
+needs the staticlib and already has a header to link against). After
+changing the FFI surface, a maintainer refreshes the committed
+`include/shellac.h` with:
 
 ```sh
 SHELLAC_UPDATE_HEADER=1 cargo build -p shellac

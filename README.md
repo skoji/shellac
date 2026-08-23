@@ -140,8 +140,8 @@ shellac = "0.1"
 three symbols — `shellac_apply_ops`, `shellac_can_open`,
 `shellac_free_string` — declared in
 [`crates/shellac/include/shellac.h`](crates/shellac/include/shellac.h).
-`build.rs` regenerates it from the current FFI surface into `OUT_DIR` on
-every build (verified fresh by a test), and a maintainer refreshes the
+`build.rs` regenerates it from the current FFI surface into `OUT_DIR` at
+build time (verified fresh by a test), and a maintainer refreshes the
 committed copy with `SHELLAC_UPDATE_HEADER=1 cargo build -p shellac` after
 changing that surface. For Apple platforms,
 `scripts/build-xcframework.sh` builds the device and simulator slices and
