@@ -5,17 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.1] - 2026-08-21
+## [0.1.1] - 2026-08-24
 
 ### Fixed
 
 - `build.rs` wrote the cbindgen-generated header into `include/shellac.h`
   under `CARGO_MANIFEST_DIR`, which for a crates.io dependency is the
-  extracted registry source. It now writes only to `OUT_DIR`; the committed
-  `include/shellac.h` ships unchanged and is refreshed explicitly with
-  `SHELLAC_UPDATE_HEADER=1 cargo build -p shellac`. A test checks that the
-  committed header is byte-identical to the generated one, so a stale header
-  fails CI. `SHELLAC_SKIP_CBINDGEN` keeps its meaning. (#7)
+  extracted registry source. A normal build now writes only to `OUT_DIR`; the
+  committed `include/shellac.h` ships unchanged and is refreshed explicitly
+  with `SHELLAC_UPDATE_HEADER=1 cargo build -p shellac`. A test checks that
+  the committed header is byte-identical to the generated one, so a stale
+  header fails CI. `SHELLAC_SKIP_CBINDGEN` keeps its meaning. (#7)
 
 ## [0.1.0] - 2026-08-21
 
