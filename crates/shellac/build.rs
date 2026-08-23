@@ -3,13 +3,10 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
-    // Re-run whenever any source file that affects the generated header changes.
-    println!("cargo:rerun-if-changed=src/lib.rs");
-    println!("cargo:rerun-if-changed=src/ops.rs");
-    println!("cargo:rerun-if-changed=src/annots.rs");
-    println!("cargo:rerun-if-changed=src/transform.rs");
+    // Re-run when any file directly under src/ (added, removed or changed)
+    // or cbindgen.toml changes -- both feed the header generated below.
+    println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=cbindgen.toml");
-    println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-env-changed=SHELLAC_SKIP_CBINDGEN");
     println!("cargo:rerun-if-env-changed=SHELLAC_UPDATE_HEADER");
 
@@ -68,15 +65,29 @@ fn main() {
     // manifest): that subprocess can touch Cargo.lock or the registry
     // cache, which is more than the "writes only under OUT_DIR" guarantee
     // above is meant to allow.
+    //
+    // Enumerated rather than named one by one so a new module under src/
+    // (bin/ is a subdirectory and read_dir doesn't recurse into it, so
+    // shellac-cli's sources are excluded automatically) is picked up
+    // without editing build.rs; cbindgen.toml's `export.include` already
+    // limits the header to the three public symbols, so parsing a file with
+    // none of them is a no-op for the output. Sorted for a deterministic
+    // parse order, since cbindgen's output can depend on it.
     let src_dir = PathBuf::from(&crate_dir).join("src");
-    match cbindgen::Builder::new()
-        .with_config(config)
-        .with_src(src_dir.join("lib.rs"))
-        .with_src(src_dir.join("ops.rs"))
-        .with_src(src_dir.join("annots.rs"))
-        .with_src(src_dir.join("transform.rs"))
-        .generate()
-    {
+    let mut src_files: Vec<PathBuf> = fs::read_dir(&src_dir)
+        .unwrap_or_else(|err| panic!("failed to read {}: {}", src_dir.display(), err))
+        .map(|entry| entry.unwrap_or_else(|err| panic!("failed to read a src/ entry: {err}")))
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file() && path.extension().is_some_and(|ext| ext == "rs"))
+        .collect();
+    src_files.sort();
+
+    let mut builder = cbindgen::Builder::new().with_config(config);
+    for src_file in &src_files {
+        builder = builder.with_src(src_file);
+    }
+
+    match builder.generate() {
         Ok(bindings) => {
             bindings.write_to_file(&out_header);
 
